@@ -1,0 +1,381 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Using String types instead of enums for SQLite compatibility
+// The enum values are documented here for reference:
+// UserRole: CANDIDATE, EMPLOYER, ADMIN
+// JobLevel: C_SUITE, VP, DIRECTOR, MANAGER, OTHER_EXECUTIVE
+// OrgType: HEALTH_SYSTEM, HOSPICE, LTC, HOME_CARE, POST_ACUTE, OTHER
+
+// Using String types instead of enums for SQLite compatibility
+// The enum values are documented here for reference:
+// NotificationType: APPLICATION_RECEIVED, APPLICATION_STATUS_CHANGED, JOB_APPROVED, JOB_REJECTED, EMPLOYER_APPROVED, EMPLOYER_REJECTED, NEW_MESSAGE, INTERVIEW_SCHEDULED, INTERVIEW_UPDATED, JOB_MATCH
+// MessageType: APPLICATION_INQUIRY, GENERAL_INQUIRY, INTERVIEW_FOLLOWUP, OFFER_DISCUSSION  
+// InterviewStatus: SCHEDULED, CONFIRMED, COMPLETED, CANCELLED, RESCHEDULED, NO_SHOW
+
+model User {
+  id            String      @id @default(cuid())
+  email         String      @unique
+  passwordHash  String
+  role          String      @default("CANDIDATE") // Using String instead of enum for SQLite compatibility
+  status        String      @default("ACTIVE") // Using String instead of enum for SQLite compatibility
+
+  candidateProfile CandidateProfile?
+  employerProfile  EmployerProfile?
+
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  // Relations for existing features
+  auditLogs         AuditLog[]        @relation("AdminAuditLogs")
+  approvedEmployers EmployerProfile[] @relation("AdminApprovedEmployers")
+  notifications    Notification[]    @relation("UserNotifications")
+  sentMessages      Message[]         @relation("MessageSender")
+  receivedMessages  Message[]         @relation("MessageRecipient")
+  jobViews          JobView[]         @relation("UserJobViews")
+  searchAnalytics   SearchAnalytics[] @relation("UserSearchAnalytics")
+  subscriptions     Subscription[]    @relation("UserSubscriptions")
+}
+
+model CandidateProfile {
+  id                    String   @id @default(cuid())
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId                String   @unique
+
+  fullName              String
+  currentTitle          String?
+  currentOrg            String?
+  primaryLocation       String?  // city, state, or region
+  willingToRelocate     Boolean  @default(false)
+  relocationRegionsJson String?  // JSON-serialized array of regions
+
+  preferredSettingsJson String?  // JSON-serialized list of care settings
+  preferredEmploymentType String?
+
+  targetLevelsJson      String?  // JSON-serialized list of JobLevel values (stored as strings)
+
+  budgetManagedMin      Int?
+  budgetManagedMax      Int?
+  teamSizeMin           Int?
+  teamSizeMax           Int?
+
+  primaryServiceLinesJson String? // JSON-serialized list of strings
+  ehrExperienceJson       String? // JSON-serialized structure
+  regulatoryExperienceJson String? // JSON-serialized structure
+
+  summary              String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  applications         Application[]
+  
+  // Relations for existing features
+  resumes      Resume[]
+  savedJobs    SavedJob[]
+  jobMatches   JobMatch[]
+}
+
+model EmployerProfile {
+  id               String   @id @default(cuid())
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId           String   @unique
+
+  orgName          String
+  orgType          String       @default("OTHER") // Using String instead of enum for SQLite compatibility
+  hqLocation       String?
+  website          String?
+  about            String?
+
+  adminApproved    Boolean  @default(false)
+  approvedByAdminId String?
+  approvedByAdmin   User?    @relation("AdminApprovedEmployers", fields: [approvedByAdminId], references: [id])
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  jobs             Job[]
+  
+  // Relations for existing features
+  payments JobPayment[]
+  subscriptions   Subscription[]
+}
+
+model Tier {
+  id           String   @id @default(cuid())
+  name         String
+  description  String?
+  priceCents   Int
+  currency     String   @default("usd")
+  durationDays Int
+  isFeatured   Boolean  @default(false)
+  isPremium    Boolean  @default(false)
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  jobs     Job[]
+  payments JobPayment[]
+  subscriptions Subscription[]
+}
+
+model Job {
+  id                        String       @id @default(cuid())
+  employer                  EmployerProfile @relation(fields: [employerId], references: [id], onDelete: Cascade)
+  employerId                String
+
+  title                     String
+  level                     String       @default("DIRECTOR") // Using String instead of enum for SQLite compatibility
+  orgNameOverride           String?
+  location                  String
+  remoteAllowed             Boolean      @default(false)
+
+  compensationMin           Int?
+  compensationMax           Int?
+  compensationCurrency      String?      // e.g. USD
+
+  descriptionRich           String       // full JD
+
+  keyResponsibilitiesJson   String?      // JSON-serialized list
+  requiredExperienceYears   Int?
+  requiredLicensesJson      String?      // JSON-serialized list of license requirements
+  requiredCertificationsJson String?     // JSON-serialized list
+  requiredEhrExperienceJson String?      // JSON-serialized list
+  requiredSettingExperienceJson String?  // JSON-serialized list
+
+  status                    String       @default("PENDING_ADMIN_REVIEW") // Using String instead of enum for SQLite compatibility
+
+  tierId                    String       // pricing tier / package
+  tier                      Tier         @relation(fields: [tierId], references: [id])
+  createdAt                 DateTime     @default(now())
+  updatedAt                 DateTime     @updatedAt
+
+  applications              Application[]
+  
+  // Relations for existing features
+  savedBy      SavedJob[]
+  payments     JobPayment[]
+  views        JobView[]
+  matches      JobMatch[]
+  searchAnalytics SearchAnalytics[]
+}
+
+model JobPayment {
+  id                    String          @id @default(cuid())
+  jobId                 String
+  job                   Job             @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  employerId            String
+  employer              EmployerProfile @relation(fields: [employerId], references: [id], onDelete: Cascade)
+  tierId                String
+  tier                  Tier            @relation(fields: [tierId], references: [id])
+  amountCents           Int
+  currency              String          @default("usd")
+  stripePaymentIntentId String?
+  stripeChargeId        String?
+  status                String
+  paidAt                DateTime?
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+}
+
+model Application {
+  id              String             @id @default(cuid())
+  candidate       CandidateProfile   @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  candidateId     String
+
+  job             Job                @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  jobId           String
+
+  status          String             @default("SUBMITTED") // Using String instead of enum for SQLite compatibility
+  candidateNote   String?
+  employerNote    String?
+
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  // Relations for existing features
+  interviews Interview[]
+  messages   Message[]
+}
+
+model Resume {
+  id           String           @id @default(cuid())
+  candidateId  String
+  candidate    CandidateProfile @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  fileUrl      String
+  fileName     String
+  fileMimeType String
+  uploadedAt   DateTime         @default(now())
+  isPrimary    Boolean          @default(true)
+}
+
+model SavedJob {
+  id          String           @id @default(cuid())
+  candidateId String
+  candidate   CandidateProfile @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  jobId       String
+  job         Job              @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  savedAt     DateTime         @default(now())
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  actorUserId String?
+  actionType  String   // e.g. "match_suggestion", "job_published", "employer_approved"
+  targetType  String?  // e.g. "Job", "CandidateProfile", "EmployerProfile"
+  targetId    String?
+  detailsJson String?  // JSON-serialized payload (no Prisma Json type)
+  createdAt   DateTime @default(now())
+
+  // Optional relation for admin users
+  actor       User?    @relation("AdminAuditLogs", fields: [actorUserId], references: [id], onDelete: SetNull)
+}
+
+model AnalyticsEvent {
+  id          String   @id @default(cuid())
+  eventType   String   // e.g. "job_view", "job_apply", "match_clicked"
+  userId      String?
+  metadataJson String? // JSON-serialized payload (no Prisma Json type)
+  createdAt   DateTime @default(now())
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  user      User             @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
+  type      String           // Using String instead of enum for SQLite compatibility
+  title     String
+  message   String
+  read      Boolean          @default(false)
+  readAt    DateTime?
+  linkUrl   String?
+  metadataJson String? // JSON-serialized metadata (no Prisma Json type)
+  createdAt DateTime         @default(now())
+
+  @@index([userId, read])
+  @@index([userId, createdAt])
+}
+
+model Message {
+  id              String       @id @default(cuid())
+  senderId        String
+  sender          User         @relation("MessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+  recipientId     String
+  recipient       User         @relation("MessageRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+  applicationId   String?
+  application     Application? @relation(fields: [applicationId], references: [id], onDelete: SetNull)
+  type            String       @default("GENERAL_INQUIRY") // Using String instead of enum for SQLite compatibility
+  subject         String?
+  body            String
+  read            Boolean      @default(false)
+  readAt          DateTime?
+  parentMessageId String?
+  parentMessage   Message?     @relation("MessageThread", fields: [parentMessageId], references: [id], onDelete: SetNull)
+  replies         Message[]    @relation("MessageThread")
+  sentAt          DateTime     @default(now())
+
+  @@index([senderId, sentAt])
+  @@index([recipientId, read, sentAt])
+  @@index([applicationId])
+}
+
+model Interview {
+  id               String          @id @default(cuid())
+  applicationId    String
+  application      Application     @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  scheduledAt      DateTime
+  status           String          @default("SCHEDULED") // Using String instead of enum for SQLite compatibility
+  location         String?
+  meetingUrl       String?
+  notes            String?
+  durationMinutes  Int?            @default(60)
+  interviewerName  String?
+  interviewerEmail String?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  @@index([applicationId])
+  @@index([scheduledAt])
+}
+
+model JobView {
+  id        String   @id @default(cuid())
+  jobId     String
+  job       Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  userId    String?
+  user      User?    @relation("UserJobViews", fields: [userId], references: [id], onDelete: SetNull)
+  viewedAt  DateTime @default(now())
+  ipAddress String?
+  userAgent String?
+
+  @@index([jobId, viewedAt])
+  @@index([userId])
+}
+
+model JobMatch {
+  id              String           @id @default(cuid())
+  jobId           String
+  job             Job              @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  candidateId     String
+  candidate       CandidateProfile @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  matchScore      Float            // 0-100 match percentage
+  matchReasonsJson String?         // JSON array of why it's a match
+  aiGenerated     Boolean          @default(true)
+  viewed          Boolean          @default(false)
+  applied         Boolean          @default(false)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@unique([jobId, candidateId])
+  @@index([candidateId, matchScore])
+  @@index([jobId, matchScore])
+}
+
+model SearchAnalytics {
+  id            String   @id @default(cuid())
+  userId        String?
+  user          User?    @relation("UserSearchAnalytics", fields: [userId], references: [id], onDelete: SetNull)
+  query         String   // Search query
+  filtersJson   String?  // JSON of applied filters
+  resultsCount  Int      // How many results returned
+  clickedJobId  String?
+  clickedJob    Job?     @relation(fields: [clickedJobId], references: [id], onDelete: SetNull)
+  searchedAt    DateTime @default(now())
+
+  @@index([userId, searchedAt])
+  @@index([query])
+}
+
+model Subscription {
+  id                    String          @id @default(cuid())
+  userId                String
+  user                  User            @relation("UserSubscriptions", fields: [userId], references: [id], onDelete: Cascade)
+  employerId            String
+  employer              EmployerProfile @relation(fields: [employerId], references: [id], onDelete: Cascade)
+  tierId                String
+  tier                  Tier            @relation(fields: [tierId], references: [id])
+  status                String          @default("ACTIVE") // ACTIVE, CANCELLED, EXPIRED, PAST_DUE
+  stripeSubscriptionId  String?         @unique
+  stripeCustomerId      String?
+  stripePriceId         String?
+  currentPeriodStart    DateTime?
+  currentPeriodEnd      DateTime?
+  cancelAtPeriodEnd     Boolean         @default(false)
+  cancelledAt           DateTime?
+  amountCents           Int
+  currency              String          @default("usd")
+  interval              String          @default("month") // month, year
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+
+  @@index([userId])
+  @@index([employerId])
+  @@index([status])
+  @@index([stripeSubscriptionId])
+}
+

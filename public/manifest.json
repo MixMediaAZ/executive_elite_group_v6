@@ -1,0 +1,10 @@
+{
+  "name": "Executive Elite Group",
+  "short_name": "EEG",
+  "description": "Executive job board for healthcare professionals",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#1e3a8a"
+}

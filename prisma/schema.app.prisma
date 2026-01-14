@@ -1,0 +1,256 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["multiSchema"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  schemas  = ["public", "auth", "storage", "realtime", "vault"]
+}
+
+enum UserRole {
+  CANDIDATE
+  EMPLOYER
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+enum JobStatus {
+  DRAFT
+  PENDING_ADMIN_REVIEW
+  LIVE
+  SUSPENDED
+  CLOSED
+}
+
+enum JobLevel {
+  C_SUITE
+  VP
+  DIRECTOR
+  MANAGER
+  OTHER_EXECUTIVE
+}
+
+enum ApplicationStatus {
+  SUBMITTED
+  UNDER_REVIEW
+  INTERVIEW
+  OFFER
+  REJECTED
+  WITHDRAWN
+}
+
+enum OrgType {
+  HEALTH_SYSTEM
+  HOSPICE
+  LTC
+  HOME_CARE
+  POST_ACUTE
+  OTHER
+}
+
+model User {
+  id           String     @id @default(cuid())
+  email        String     @unique
+  passwordHash String
+  role         UserRole
+  status       UserStatus @default(ACTIVE)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  lastLoginAt  DateTime?
+
+  candidateProfile CandidateProfile?
+  employerProfile  EmployerProfile?
+
+  auditLogs         AuditLog[]        @relation("AdminAuditLogs")
+  approvedEmployers EmployerProfile[] @relation("AdminApprovedEmployers")
+}
+
+model CandidateProfile {
+  id                      String   @id @default(cuid())
+  userId                  String   @unique
+  user                    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  firstName               String
+  lastName                String
+  phone                   String?
+  locationCity            String?
+  locationState           String?
+  locationCountry         String?
+  currentTitle            String?
+  currentOrg              String?
+  yearsExperience         Int?
+  willingToRelocate       Boolean  @default(false)
+  relocationRegions       Json?
+  preferredSettings       Json?
+  preferredEmploymentType String?
+  salaryMin               Int?
+  salaryMax               Int?
+  summary                 String?
+  teamSizeManagedMin      Int?
+  teamSizeManagedMax      Int?
+  budgetManagedMin        Int?
+  budgetManagedMax        Int?
+  primaryServiceLines     Json?
+  ehrExperience           Json?
+  regulatoryExperience    Json?
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  resumes      Resume[]
+  applications Application[]
+  savedJobs    SavedJob[]
+}
+
+model EmployerProfile {
+  id                  String    @id @default(cuid())
+  userId              String    @unique
+  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organizationName    String
+  websiteUrl          String?
+  orgType             OrgType
+  sizeDescriptor      String?
+  description         String?
+  headquartersCity    String?
+  headquartersState   String?
+  headquartersCountry String?
+  logoUrl             String?
+  approved            Boolean   @default(false)
+  approvedAt          DateTime?
+  approvedByAdminId   String?
+  approvedByAdmin     User?     @relation("AdminApprovedEmployers", fields: [approvedByAdminId], references: [id])
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  jobs     Job[]
+  payments JobPayment[]
+}
+
+model Tier {
+  id           String   @id @default(cuid())
+  name         String
+  description  String?
+  priceCents   Int
+  currency     String   @default("usd")
+  durationDays Int
+  isFeatured   Boolean  @default(false)
+  isPremium    Boolean  @default(false)
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  jobs     Job[]
+  payments JobPayment[]
+}
+
+model Job {
+  id                        String          @id @default(cuid())
+  employerId                String
+  employer                  EmployerProfile @relation(fields: [employerId], references: [id], onDelete: Cascade)
+  title                     String
+  level                     JobLevel
+  department                String?
+  locationCity              String?
+  locationState             String?
+  locationCountry           String?
+  remoteAllowed             Boolean         @default(false)
+  hybridAllowed             Boolean         @default(false)
+  salaryMin                 Int?
+  salaryMax                 Int?
+  salaryCurrency            String?         @default("usd")
+  descriptionRich           String
+  keyResponsibilities       Json?
+  requiredExperienceYears   Int?
+  requiredLicenses          Json?
+  requiredCertifications    Json?
+  requiredEhrExperience     Json?
+  requiredSettingExperience Json?
+  tierId                    String
+  tier                      Tier            @relation(fields: [tierId], references: [id])
+  status                    JobStatus       @default(DRAFT)
+  postedAt                  DateTime?
+  expiresAt                 DateTime?
+  createdAt                 DateTime        @default(now())
+  updatedAt                 DateTime        @updatedAt
+
+  applications Application[]
+  savedBy      SavedJob[]
+  payments     JobPayment[]
+}
+
+model JobPayment {
+  id                    String          @id @default(cuid())
+  jobId                 String
+  job                   Job             @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  employerId            String
+  employer              EmployerProfile @relation(fields: [employerId], references: [id], onDelete: Cascade)
+  tierId                String
+  tier                  Tier            @relation(fields: [tierId], references: [id])
+  amountCents           Int
+  currency              String          @default("usd")
+  stripePaymentIntentId String?
+  stripeChargeId        String?
+  status                String
+  paidAt                DateTime?
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+}
+
+model Application {
+  id                    String            @id @default(cuid())
+  jobId                 String
+  job                   Job               @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  candidateId           String
+  candidate             CandidateProfile  @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  status                ApplicationStatus @default(SUBMITTED)
+  candidateMessage      String?
+  employerInternalNotes String?
+  submittedAt           DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+}
+
+model Resume {
+  id           String           @id @default(cuid())
+  candidateId  String
+  candidate    CandidateProfile @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  fileUrl      String
+  fileName     String
+  fileMimeType String
+  uploadedAt   DateTime         @default(now())
+  isPrimary    Boolean          @default(true)
+}
+
+model SavedJob {
+  id          String           @id @default(cuid())
+  candidateId String
+  candidate   CandidateProfile @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  jobId       String
+  job         Job              @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  savedAt     DateTime         @default(now())
+}
+
+model AnalyticsEvent {
+  id          String   @id @default(cuid())
+  userId      String?
+  employerId  String?
+  candidateId String?
+  jobId       String?
+  eventType   String
+  metadata    Json?
+  createdAt   DateTime @default(now())
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  adminId    String
+  admin      User     @relation("AdminAuditLogs", fields: [adminId], references: [id], onDelete: Cascade)
+  action     String
+  targetType String
+  targetId   String?
+  details    Json?
+  createdAt  DateTime @default(now())
+}

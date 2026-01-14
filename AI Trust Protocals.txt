@@ -1,0 +1,772 @@
+A. AI is everywhere in HR now – but trust is the bottleneck
+
+AI adoption in HR has exploded: ~70% of companies experimenting with AI are already using it in HR, and AI recruiting tools are now used by ~87% of companies.
+
+Candidates do not trust AI by default – many will avoid companies that use AI in hiring if it feels opaque or unfair.
+
+What we should build:
+
+“How We Use AI” Trust Center (static but prominent page + banners on key flows)
+
+Plain-language explanation of:
+
+Which features use AI (job-description assist, match suggestions, interview reminders, etc.)
+
+What data is fed into AI, and what is never used (no scraping Slack, no personality guesses, no protected attributes).
+
+A clear statement that humans make final decisions, AI only suggests.
+
+A simple consent toggle for candidates and employers:
+
+“Use AI to suggest matches and improve my experience” (on/off).
+
+When off, system still works, just without AI-assist.
+
+“Why This Match?” Explainability
+
+On every AI-suggested match, show a short explanation:
+
+“We suggested this role because: your experience in hospice + VP-level tenure + budget size ~X fit the hiring team’s criteria.”
+
+No black-box recommendations.
+
+B. Recruitment: speed and humanity
+
+AI is great at the grunt work (sourcing, screening, scheduling, content generation).
+
+But companies that win use it to surface more diverse talent, not just go faster.
+
+Candidates selected by AI can actually perform better in interviews and accept offers more often when systems are transparent and human-reviewed. (From the newsletter’s summary of recent research.)
+
+What we should build:
+
+AI-assisted Job Description & Outreach Wizard (employer side)
+
+Step-based wizard for executives in healthcare employers:
+
+Basic role details (title, level, location, salary band, must-have skills, setting, service lines).
+
+Culture & leadership expectations (turnaround vs growth vs stabilization).
+
+Output:
+
+A draft job description.
+
+A short outreach blurb for LinkedIn / email.
+
+Employer can fully edit before publishing.
+
+Explicit label: “AI-assisted draft – reviewed by you before posting.”
+
+Skills-first Matching (candidate side)
+
+Candidate profiles centered on:
+
+Core skills, service lines, budgets, team sizes, regulatory experience, EHR experience.
+
+Matching algorithm focuses on skills + level + setting, not alma mater or employer brand.
+
+For now: simple rules / scoring, but structured so later we can upgrade to a more agentic AI engine.
+
+Human-in-the-loop for all automated ranking
+
+Employers always see:
+
+“Recommended” candidate list sortable by AI-score, but it’s just a default sort.
+
+Ability to override, bookmark, and manually search the full pool.
+
+Design explicitly so there is no auto-rejection based solely on AI.
+
+C. Employee (and candidate) experience: re-humanize, don’t surveil
+
+Modern EX trends: use AI to remove friction, not to spy. Employees want AI to find info / opportunities, not scan all their messages.
+
+For our exec-level nursing/healthcare audience:
+
+Career Pathing & “Next Move Navigator” (candidate-focused)
+
+Small side feature in candidate dashboard:
+
+Based on their profile, show:
+
+“Likely next steps” (CNO at regional system, VP Clinical Ops at national hospice, etc.).
+
+Skills gaps to reach those roles (e.g. “Multi-site P&L >$500M”).
+
+Links to:
+
+Jobs on the platform that align with those “next moves”.
+
+(Phase 2) External resources / development paths.
+
+No creepy telemetry
+
+We explicitly do not:
+
+Analyze candidate emails/Slack.
+
+Score personality from writing.
+
+Our platform only works from:
+
+What they explicitly input.
+
+What employers explicitly input about roles.
+
+D. Ethics, bias, and governance
+
+Bias in AI recruitment is real and particularly dangerous for marginalized groups.
+
+Regulators (EU AI Act, NYC Local Law 144, etc.) are demanding bias audits, candidate notices, and documented oversight.
+
+What we should build:
+
+Bias-aware design from day one
+
+Data & modeling constraints:
+
+Do not collect or use:
+
+Race, gender, age, disability, sexual orientation, religion, or other protected characteristics in matching.
+
+Matching logic only uses:
+
+Role-related skills, level, specialties, location, compensation range, availability, and preferences.
+
+Auditing scaffolding:
+
+An AuditLog model (or equivalent) that records:
+
+What type of decision was assisted (e.g. “match_suggestion”).
+
+Inputs used (non-sensitive).
+
+Output (e.g. list of candidate IDs with scores).
+
+Timestamps & acting user.
+
+Data stored as JSON-serialized strings (not Prisma Json type) so SQLite / Postgres both work cleanly (this also directly avoids the Json errors you hit earlier).
+
+Candidate-facing “Fairness & Use of AI” statement
+
+Section in the Trust Center:
+
+“We do not use AI to decide who is rejected. We only use it to suggest opportunities. You can always see why something was suggested and you can opt out.”
+
+E. From tool to platform – agentic workflows without losing control
+
+The article talks about agentic AI: systems that plan/execute multistep workflows, not just individual tasks.
+
+We don’t have to go full Skynet, but we can architect for:
+
+End-to-end workflows instead of point tools
+
+For employers:
+
+“Create role → get AI-assisted JD → publish → receive candidate matches → send outreach templates → track pipeline.”
+
+For candidates:
+
+“Complete profile → receive curated roles → get suggested talking points for interviews → track application status.”
+
+And in code:
+
+Make each step a well-defined module, so later an agent (on the backend) can orchestrate them without rewriting everything.
+
+2. Cursor Master Prompt – incorporate all of this into the Job Board (no guessing)
+
+You can paste this directly into Cursor when you open the Executive Elite Group repo there.
+
+🔧 CURSOR MASTER PROMPT (FOR EXECUTIVE ELITE GROUP JOB BOARD)
+
+You are my expert dev team.
+You will not guess.
+If something is missing in the codebase, implement it exactly as specified below.
+If there is a conflict between existing code and these instructions, refactor existing code to match these instructions while preserving as much of the working logic and UI as possible.
+
+0. PROJECT CONTEXT (ASSUME THIS BASELINE)
+
+Stack: Next.js 14 (App Router) with TypeScript.
+
+Auth: NextAuth (or equivalent session-based auth) with roles for:
+
+CANDIDATE
+
+EMPLOYER
+
+ADMIN
+
+Database: Prisma ORM.
+
+For local dev: SQLite is acceptable (file:./dev.db).
+
+For production later: will switch to Postgres.
+
+Brand: The Executive Elite Group
+
+Focus: executive / leadership roles only in healthcare (C-Suite, VP, Director, high-level Manager).
+
+Initial customers: direct employers (health systems, hospices, LTC, home care, post-acute, etc.).
+
+UX: Responsive web app that runs well in desktop and mobile browsers (no native app yet).
+
+If the current repo does not match this baseline, refactor it so that it does.
+
+1. DATA MODEL – PRISMA (MUST MATCH EXACTLY)
+
+Open prisma/schema.prisma and adjust models as follows.
+
+Use this datasource and generator for local dev:
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+
+Define enums using Prisma enums (Prisma + SQLite supports enums internally via text):
+
+enum UserRole {
+  CANDIDATE
+  EMPLOYER
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+enum JobStatus {
+  DRAFT
+  PENDING_ADMIN_REVIEW
+  LIVE
+  SUSPENDED
+  CLOSED
+}
+
+enum JobLevel {
+  C_SUITE
+  VP
+  DIRECTOR
+  MANAGER
+  OTHER_EXECUTIVE
+}
+
+enum ApplicationStatus {
+  SUBMITTED
+  UNDER_REVIEW
+  INTERVIEW
+  OFFER
+  REJECTED
+  WITHDRAWN
+}
+
+enum OrgType {
+  HEALTH_SYSTEM
+  HOSPICE
+  LTC
+  HOME_CARE
+  POST_ACUTE
+  OTHER
+}
+
+
+Core models (add or align existing models to these):
+
+model User {
+  id            String      @id @default(cuid())
+  email         String      @unique
+  passwordHash  String
+  role          UserRole
+  status        UserStatus  @default(ACTIVE)
+
+  candidateProfile CandidateProfile?
+  employerProfile  EmployerProfile?
+
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+}
+
+model CandidateProfile {
+  id                    String   @id @default(cuid())
+  user                  User     @relation(fields: [userId], references: [id])
+  userId                String   @unique
+
+  fullName              String
+  currentTitle          String?
+  currentOrg            String?
+  primaryLocation       String?  // city, state, or region
+  willingToRelocate     Boolean  @default(false)
+  relocationRegionsJson String?  // JSON-serialized array of regions
+
+  preferredSettingsJson String?  // JSON-serialized list of care settings
+  preferredEmploymentType String?
+
+  targetLevelsJson      String?  // JSON-serialized list of JobLevel values (stored as strings)
+
+  budgetManagedMin      Int?
+  budgetManagedMax      Int?
+  teamSizeMin           Int?
+  teamSizeMax           Int?
+
+  primaryServiceLinesJson String? // JSON-serialized list of strings
+  ehrExperienceJson       String? // JSON-serialized structure
+  regulatoryExperienceJson String? // JSON-serialized structure
+
+  summary              String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  applications         Application[]
+}
+
+model EmployerProfile {
+  id               String   @id @default(cuid())
+  user             User     @relation(fields: [userId], references: [id])
+  userId           String   @unique
+
+  orgName          String
+  orgType          OrgType
+  hqLocation       String?
+  website          String?
+  about            String?
+
+  adminApproved    Boolean  @default(false)
+  approvedByAdminId String?
+  approvedByAdmin   User?    @relation("AdminApprovedEmployers", fields: [approvedByAdminId], references: [id])
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  jobs             Job[]
+}
+
+model Job {
+  id                        String       @id @default(cuid())
+  employer                  EmployerProfile @relation(fields: [employerId], references: [id])
+  employerId                String
+
+  title                     String
+  level                     JobLevel
+  orgNameOverride           String?
+  location                  String
+  remoteAllowed             Boolean      @default(false)
+
+  compensationMin           Int?
+  compensationMax           Int?
+  compensationCurrency      String?      // e.g. USD
+
+  descriptionRich           String       // full JD
+
+  keyResponsibilitiesJson   String?      // JSON-serialized list
+  requiredExperienceYears   Int?
+  requiredLicensesJson      String?      // JSON-serialized list of license requirements
+  requiredCertificationsJson String?     // JSON-serialized list
+  requiredEhrExperienceJson String?      // JSON-serialized list
+  requiredSettingExperienceJson String?  // JSON-serialized list
+
+  status                    JobStatus    @default(PENDING_ADMIN_REVIEW)
+
+  tierId                    String       // pricing tier / package
+  createdAt                 DateTime     @default(now())
+  updatedAt                 DateTime     @updatedAt
+
+  applications              Application[]
+}
+
+model Application {
+  id              String             @id @default(cuid())
+  candidate       CandidateProfile   @relation(fields: [candidateId], references: [id])
+  candidateId     String
+
+  job             Job                @relation(fields: [jobId], references: [id])
+  jobId           String
+
+  status          ApplicationStatus  @default(SUBMITTED)
+  candidateNote   String?
+  employerNote    String?
+
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  actorUserId String?
+  actionType  String   // e.g. "match_suggestion", "job_published", "employer_approved"
+  targetType  String?  // e.g. "Job", "CandidateProfile", "EmployerProfile"
+  targetId    String?
+  detailsJson String?  // JSON-serialized payload (no Prisma Json type)
+  createdAt   DateTime @default(now())
+}
+
+model AnalyticsEvent {
+  id          String   @id @default(cuid())
+  eventType   String   // e.g. "job_view", "job_apply", "match_clicked"
+  userId      String?
+  metadataJson String? // JSON-serialized payload (no Prisma Json type)
+  createdAt   DateTime @default(now())
+}
+
+
+After updating the schema, Cursor must run:
+
+npx prisma migrate dev --name init
+npx prisma generate
+
+
+Fix any schema errors by modifying the schema to match exactly what is specified above. Do NOT reintroduce Json fields that break SQLite.
+
+2. AUTH & ROLE GUARDRAILS
+
+Implement or refine auth so that:
+
+Candidates:
+
+Can register, complete candidate profile, browse and apply for jobs, see AI-powered match suggestions and “Next Move Navigator”.
+
+Employers:
+
+Can register, complete employer profile, submit for admin approval.
+
+Can only create/activate jobs after adminApproved is true.
+
+Admins:
+
+Can view and approve/reject employers.
+
+Can see analytics and audit logs.
+
+Protect routes:
+
+/candidate/** – candidate only.
+
+/employer/** – employer only.
+
+/admin/** – admin only.
+
+3. FRONTEND UX – KEY SCREENS
+
+Implement or update the following screens under app/:
+
+app/page.tsx – Landing
+
+Clear positioning:
+
+“Executive & Leadership Roles in Healthcare”
+
+Two primary CTAs:
+
+“I’m an Executive” → /auth/register?role=candidate
+
+“I’m Hiring” → /auth/register?role=employer
+
+Short copy on AI:
+
+“AI-assisted matching, human-led decisions. Built for fairness and transparency.”
+
+app/auth/register/page.tsx
+
+Toggle / buttons to choose role.
+
+Email + password form.
+
+On submit:
+
+Create User with chosen role.
+
+Redirect:
+
+Candidate → /candidate/onboarding
+
+Employer → /employer/onboarding
+
+app/candidate/onboarding/page.tsx
+
+Multi-step form mapping to CandidateProfile fields:
+
+Step 1: basic identity (full name, title, current org, primary location, willingToRelocate, relocationRegions).
+
+Step 2: role preferences (target levels, settings, employment type).
+
+Step 3: leadership scope (budgets, team size, service lines).
+
+Step 4: experience (EHR, regulatory).
+
+Step 5: summary.
+
+Store structured lists as JSON strings (relocationRegionsJson, etc.) using JSON.stringify().
+
+app/candidate/dashboard/page.tsx
+
+Sections:
+
+“Suggested Roles for You” – list of Job cards with:
+
+Match score (basic rule-based scoring).
+
+“Why this match?” mini explanation.
+
+“Your Applications” – status list.
+
+“Next Move Navigator” – see section 4 below.
+
+app/employer/onboarding/page.tsx
+
+Capture EmployerProfile fields.
+
+Mark adminApproved = false initially.
+
+After submit:
+
+Show a “pending approval” message.
+
+Disable job posting until approved.
+
+app/employer/jobs/new/page.tsx
+
+Job Creation Wizard with AI assist (see section 4).
+
+app/jobs/[id]/page.tsx
+
+Public job detail.
+
+“Apply now” → candidate-only; redirect to register/login if not authenticated.
+
+app/admin/employers/page.tsx
+
+List employers needing approval.
+
+Approve / reject buttons.
+
+On approve:
+
+Set adminApproved = true, approvedByAdminId = admin.id.
+
+Write AuditLog entry (actionType="employer_approved").
+
+4. AI-ASSISTED FEATURES (BUT IMPLEMENTED SAFELY)
+
+Implement AI integration in a modular way so that:
+
+All AI calls go through a single server-side module, e.g. lib/ai.ts.
+
+That module:
+
+Takes a structured input.
+
+Returns structured output.
+
+Logs AnalyticsEvent and AuditLog entries for transparency.
+
+4.1 Job Description & Outreach Wizard (Employer)
+
+On /employer/jobs/new:
+
+Step 1: employer fills structured inputs:
+
+title, level, location, remoteAllowed, orgNameOverride, service lines, must-have skills, culture/mandate.
+
+Step 2:
+
+Call lib/ai.ts function generateJobDescriptionAndOutreach(...).
+
+It returns:
+
+jobDescription: string
+
+keyResponsibilities: string[]
+
+outreachSnippet: string
+
+Step 3:
+
+Show generated content in editable form areas.
+
+Employer can fully edit before saving.
+
+On save:
+
+Persist to Job:
+
+descriptionRich
+
+keyResponsibilitiesJson (JSON.stringify of array).
+
+Constraints for Cursor:
+
+Use OpenAI or equivalent already configured in repo. If none is configured, create a placeholder lib/ai.ts that returns deterministic dummy text but keep the interface ready for later real AI integration.
+
+Always label AI-generated text in the UI: “AI-assisted draft – please review before publishing.”
+
+4.2 Candidate Match Suggestions & “Why this match?”
+
+Implement a server-side function getCandidateJobMatches(candidateId: string):
+
+Inputs:
+
+Candidate’s profile.
+
+All LIVE jobs.
+
+Logic:
+
+Compute simple numeric score based on:
+
+Level alignment.
+
+Service line overlap.
+
+Setting overlap.
+
+Location proximity / relocation willingness.
+
+Return array of:
+
+Job
+
+score: number
+
+explanation: string (non-AI at this stage; human-written templates based on matched criteria).
+
+The candidate dashboard uses this function to show:
+
+Sorted list by score.
+
+Explanation text displayed under each card.
+
+Log each match computation into AuditLog with:
+
+actionType = "match_suggestion"
+
+detailsJson including candidateId, jobIds, and scores (stringified JSON).
+
+5. TRUST CENTER & FAIRNESS STATEMENT
+
+Create a route app/trust/page.tsx:
+
+Content (you can hardcode copy in this version):
+
+Section: “How We Use AI”
+
+We use AI to:
+
+Help employers draft better job descriptions and outreach.
+
+Suggest roles to candidates based on skills and preferences.
+
+We do not:
+
+Use AI alone to reject candidates.
+
+Scrape private communications.
+
+Section: “Your Data & Privacy”
+
+List data we collect (profile fields, applications, job views).
+
+Explicitly say we do not store or use protected characteristics for matching.
+
+Section: “Fairness & Bias”
+
+State that:
+
+We audit AI-assisted features.
+
+We store audit logs (without sensitive attributes) to check for issues.
+
+Add a footer link “Trust & Fairness” that points to /trust and make sure this is accessible from candidate, employer, and admin dashboards.
+
+6. ANALYTICS & AUDIT LOGS (MINIMUM IMPLEMENTATION)
+
+Implement a simple admin-only screen:
+
+app/admin/insights/page.tsx
+
+Show aggregated metrics:
+
+Number of:
+
+Candidates
+
+Employers (approved vs pending)
+
+Live Jobs
+
+Applications
+
+Average applications per live job.
+
+List of recent AuditLog entries (last 50):
+
+Date, actionType, actorUserId, targetType, targetId.
+
+All logs must be stored using the AuditLog model provided above.
+
+7. NON-NEGOTIABLE CONSTRAINTS
+
+No use of Prisma Json fields with SQLite.
+
+Where structured data is needed, always use String fields with JSON-serialized content.
+
+No auto-rejection by AI.
+
+AI can suggest, summarize, or rank, but not decide final outcomes.
+
+No storage or use of protected characteristics for matching or analytics.
+
+Do not remove working features unless absolutely required to align with this prompt.
+
+If you must replace something, keep the UI/UX equal or better.
+
+No TODOs / placeholders in core flows.
+
+Registration, onboarding, job creation, job browsing, application submission, and candidate dashboard must be fully wired and working in local dev.
+
+8. FINAL CHECKS (WHAT MUST WORK LOCALLY)
+
+Before you consider the implementation done, ensure the following flow works in local dev:
+
+Run:
+
+npm install
+npx prisma migrate dev --name init
+npx prisma generate
+npm run dev
+
+
+As a new user, register as Employer:
+
+Complete employer onboarding.
+
+Admin approves employer in /admin/employers.
+
+Employer creates a job via the wizard (AI-assist stub is okay, but UI flow must work).
+
+As a new user, register as Candidate:
+
+Complete candidate onboarding.
+
+See suggested jobs on /candidate/dashboard with:
+
+Scores.
+
+“Why this match?” text.
+
+Candidate applies to a job.
+
+Admin can:
+
+View applications in existing or newly created admin view.
+
+See audit logs and basic analytics on /admin/insights.
+
+/trust page is accessible from the main navigation and clearly explains AI usage and fairness policy.
+
+If any of the above steps fail, debug and fix the implementation instead of downgrading features or removing requirements.
