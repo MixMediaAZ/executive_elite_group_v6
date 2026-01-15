@@ -23,13 +23,19 @@ export const authOptions: NextAuthConfig = {
           return null
         }
 
-        const email = credentials.email as string
+        const emailInput = (credentials.email as string).trim()
         const password = credentials.password as string
 
         // Lazy load db only when authorize is called (in Node.js runtime, not Edge)
         const db = await getDb()
-        const user = await db.user.findUnique({
-          where: { email },
+        // Case-insensitive lookup so existing mixed-case emails still work
+        const user = await db.user.findFirst({
+          where: {
+            email: {
+              equals: emailInput,
+              mode: 'insensitive',
+            },
+          },
           include: {
             candidateProfile: true,
             employerProfile: true,

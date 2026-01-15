@@ -20,6 +20,19 @@ interface AdminStats {
   totalApplications: number
 }
 
+type PrismaLikeError = {
+  code?: string
+  message?: string
+}
+
+function isDatabaseConnectionError(error: PrismaLikeError | undefined) {
+  if (!error) return false
+  return (
+    error.code === 'P1001' ||
+    (typeof error.message === 'string' && error.message.includes("Can't reach database server"))
+  )
+}
+
 export default async function DashboardPage() {
   const session = await getServerSessionHelper()
 
@@ -36,100 +49,128 @@ export default async function DashboardPage() {
   let pendingEmployers: EmployerWithUser[] = []
   let pendingJobs: PendingJobSummary[] = []
   let stats: AdminStats | null = null
+  let dbUnavailableMessage: string | null = null
 
   if (session.user.role === 'CANDIDATE' && session.user.candidateProfileId) {
     // Optimized query: get candidate profile and recent applications in parallel
-    const [candidateResult, applicationsResult] = await Promise.all([
-      db.candidateProfile.findUnique({
-        where: { id: session.user.candidateProfileId },
-        include: {
-          user: {
-            select: { email: true },
+    try {
+      const [candidateResult, applicationsResult] = await Promise.all([
+        db.candidateProfile.findUnique({
+          where: { id: session.user.candidateProfileId },
+          include: {
+            user: {
+              select: { email: true },
+            },
           },
-        },
-      }),
-      db.application.findMany({
-        where: { candidateId: session.user.candidateProfileId },
-        include: {
-          job: {
-            include: {
-              employer: {
-                select: { orgName: true },
+        }),
+        db.application.findMany({
+          where: { candidateId: session.user.candidateProfileId },
+          include: {
+            job: {
+              include: {
+                employer: {
+                  select: { orgName: true },
+                },
               },
             },
           },
-        },
-        orderBy: { createdAt: 'desc' },
-        take: 5,
-      })
-    ])
-    
-    candidateProfile = candidateResult
-    applications = applicationsResult
+          orderBy: { createdAt: 'desc' },
+          take: 5,
+        })
+      ])
+      
+      candidateProfile = candidateResult
+      applications = applicationsResult
+    } catch (error: unknown) {
+      const maybe = error as PrismaLikeError
+      if (isDatabaseConnectionError(maybe)) {
+        dbUnavailableMessage = 'Database is unavailable. Please check your DATABASE_URL and ensure your database is running.'
+      } else {
+        throw error
+      }
+    }
   } else if (session.user.role === 'EMPLOYER' && session.user.employerProfileId) {
     // Optimized query: get employer profile and recent jobs in parallel
-    const [employerResult, jobsResult] = await Promise.all([
-      db.employerProfile.findUnique({
-        where: { id: session.user.employerProfileId },
-        include: {
-          user: {
-            select: { email: true },
+    try {
+      const [employerResult, jobsResult] = await Promise.all([
+        db.employerProfile.findUnique({
+          where: { id: session.user.employerProfileId },
+          include: {
+            user: {
+              select: { email: true },
+            },
           },
-        },
-      }),
-      db.job.findMany({
-        where: { employerId: session.user.employerProfileId },
-        include: {
-          _count: {
-            select: { applications: true },
+        }),
+        db.job.findMany({
+          where: { employerId: session.user.employerProfileId },
+          include: {
+            _count: {
+              select: { applications: true },
+            },
           },
-        },
-        orderBy: { createdAt: 'desc' },
-        take: 5,
-      })
-    ])
-    
-    employerProfile = employerResult
-    jobs = jobsResult
+          orderBy: { createdAt: 'desc' },
+          take: 5,
+        })
+      ])
+      
+      employerProfile = employerResult
+      jobs = jobsResult
+    } catch (error: unknown) {
+      const maybe = error as PrismaLikeError
+      if (isDatabaseConnectionError(maybe)) {
+        dbUnavailableMessage = 'Database is unavailable. Please check your DATABASE_URL and ensure your database is running.'
+      } else {
+        throw error
+      }
+    }
   } else if (session.user.role === 'ADMIN') {
     // Optimized queries: get all admin data in parallel
-    const [pendingEmployersResult, pendingJobsResult, statsResult] = await Promise.all([
-      db.employerProfile.findMany({
-        where: { adminApproved: false },
-        include: {
-          user: {
-            select: { email: true, createdAt: true },
+    try {
+      const [pendingEmployersResult, pendingJobsResult, statsResult] = await Promise.all([
+        db.employerProfile.findMany({
+          where: { adminApproved: false },
+          include: {
+            user: {
+              select: { email: true, createdAt: true },
+            },
           },
-        },
-        orderBy: { createdAt: 'desc' },
-        take: 10,
-      }),
-      db.job.findMany({
-        where: { status: 'PENDING_ADMIN_REVIEW' },
-        include: {
-          employer: {
-            select: { orgName: true },
+          orderBy: { createdAt: 'desc' },
+          take: 10,
+        }),
+        db.job.findMany({
+          where: { status: 'PENDING_ADMIN_REVIEW' },
+          include: {
+            employer: {
+              select: { orgName: true },
+            },
           },
-        },
-        orderBy: { createdAt: 'desc' },
-        take: 10,
-      }),
-      Promise.all([
-        db.candidateProfile.count(),
-        db.employerProfile.count(),
-        db.job.count({ where: { status: 'LIVE' } }),
-        db.application.count(),
-      ]).then(([totalCandidates, totalEmployers, liveJobs, totalApplications]) => ({
-        totalCandidates,
-        totalEmployers,
-        liveJobs,
-        totalApplications
-      }))
-    ])
-    
-    pendingEmployers = pendingEmployersResult
-    pendingJobs = pendingJobsResult
-    stats = statsResult
+          orderBy: { createdAt: 'desc' },
+          take: 10,
+        }),
+        Promise.all([
+          db.candidateProfile.count(),
+          db.employerProfile.count(),
+          db.job.count({ where: { status: 'LIVE' } }),
+          db.application.count(),
+        ]).then(([totalCandidates, totalEmployers, liveJobs, totalApplications]) => ({
+          totalCandidates,
+          totalEmployers,
+          liveJobs,
+          totalApplications
+        }))
+      ])
+      
+      pendingEmployers = pendingEmployersResult
+      pendingJobs = pendingJobsResult
+      stats = statsResult
+    } catch (error: unknown) {
+      const maybe = error as PrismaLikeError
+      if (isDatabaseConnectionError(maybe)) {
+        dbUnavailableMessage = 'Database is unavailable. Please check your DATABASE_URL and ensure your database is running.'
+      } else {
+        throw error
+      }
+    }
   }
 
   return (
@@ -152,6 +193,15 @@ export default async function DashboardPage() {
             {/* Admin Dashboard */}
             {session.user.role === 'ADMIN' && (
               <div className="space-y-6">
+                {dbUnavailableMessage && (
+                  <div className="bg-yellow-50 border border-yellow-200 text-yellow-900 px-4 py-3 rounded">
+                    <p className="font-medium">Database connection issue</p>
+                    <p className="text-sm mt-1">{dbUnavailableMessage}</p>
+                    <p className="text-sm mt-1">
+                      See <span className="font-mono">DATABASE_SETUP.md</span> for the correct Supabase Session Pooler connection string.
+                    </p>
+                  </div>
+                )}
                 {/* Stats Overview */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8" id="stats">
                   <div className="bg-white rounded-lg border border-neutral-200 p-6 hover:shadow-md transition-shadow">

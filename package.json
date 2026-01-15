@@ -16,7 +16,7 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:seed": "tsx prisma/seed.ts",
     "db:test": "node scripts/test-db-connection.js",
-    "db:setup": "npm run prisma:migrate:deploy && npm run prisma:seed",
+    "db:setup": "npm run prisma:generate && npx prisma db push && npm run prisma:seed",
     "create-admin": "tsx scripts/create-admin.ts",
     "promote-admin": "tsx scripts/promote-admin.ts",
     "scan:secrets": "secretlint \"**/*\"",

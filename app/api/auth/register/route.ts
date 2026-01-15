@@ -28,8 +28,17 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const validated = registerSchema.parse(body)
 
-    const existingUser = await db.user.findUnique({
-      where: { email: validated.email },
+    const emailInput = validated.email.trim()
+    const normalizedEmail = emailInput.toLowerCase()
+
+    // Case-insensitive check to prevent duplicate accounts by casing
+    const existingUser = await db.user.findFirst({
+      where: {
+        email: {
+          equals: emailInput,
+          mode: 'insensitive',
+        },
+      },
     })
 
     if (existingUser) {
@@ -45,7 +54,7 @@ export async function POST(request: NextRequest) {
     const result = await db.$transaction(async (tx: Omit<PrismaClient, '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'>) => {
       const user = await tx.user.create({
         data: {
-          email: validated.email,
+          email: normalizedEmail,
           passwordHash,
           role: validated.role,
         },

@@ -11,6 +11,7 @@ const prisma = new PrismaClient()
 async function createAdmin() {
   const email = 'admin@executiveelite.com'
   const password = 'Admin123!'
+  const normalizedEmail = email.trim().toLowerCase()
   
   console.log('🔐 Creating admin user...')
   console.log(`Email: ${email}`)
@@ -19,8 +20,13 @@ async function createAdmin() {
 
   try {
     // Check if admin already exists
-    const existingAdmin = await prisma.user.findUnique({
-      where: { email },
+    const existingAdmin = await prisma.user.findFirst({
+      where: {
+        email: {
+          equals: email,
+          mode: 'insensitive',
+        },
+      },
     })
 
     if (existingAdmin) {
@@ -29,8 +35,9 @@ async function createAdmin() {
       
       const passwordHash = await bcrypt.hash(password, 10)
       await prisma.user.update({
-        where: { email },
+        where: { id: existingAdmin.id },
         data: {
+          email: normalizedEmail,
           passwordHash,
           role: 'ADMIN',
           status: 'ACTIVE',
@@ -44,7 +51,7 @@ async function createAdmin() {
       
       const admin = await prisma.user.create({
         data: {
-          email,
+          email: normalizedEmail,
           passwordHash,
           role: 'ADMIN',
           status: 'ACTIVE',
@@ -57,7 +64,7 @@ async function createAdmin() {
     
     console.log('')
     console.log('📋 Login Credentials:')
-    console.log(`   Email: ${email}`)
+    console.log(`   Email: ${normalizedEmail}`)
     console.log(`   Password: ${password}`)
     console.log('')
     console.log('🚀 You can now log in at: http://localhost:3000/auth/login')
