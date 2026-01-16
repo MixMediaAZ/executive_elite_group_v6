@@ -63,9 +63,9 @@ export const authOptions: NextAuthConfig = {
             },
           })
         // #region agent log
-        const logEntry = {location:'lib/auth.ts:43',message:'after db lookup',data:{userFound:!!user,userId:user?.id,userEmail:user?.email,userRole:user?.role,userStatus:user?.status},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,E'};
-        console.log('[AUTH DEBUG]', JSON.stringify(logEntry));
-        fetch('http://127.0.0.1:7252/ingest/af4f18b1-607b-409e-9a53-dc7dabb167e7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(logEntry)}).catch(()=>{});
+        const logEntryDbLookup = {location:'lib/auth.ts:43',message:'after db lookup',data:{userFound:!!user,userId:user?.id,userEmail:user?.email,userRole:user?.role,userStatus:user?.status},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,E'};
+        console.log('[AUTH DEBUG]', JSON.stringify(logEntryDbLookup));
+        fetch('http://127.0.0.1:7252/ingest/af4f18b1-607b-409e-9a53-dc7dabb167e7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(logEntryDbLookup)}).catch(()=>{});
         // #endregion
         } catch (queryError: any) {
           // #region agent log
@@ -85,9 +85,9 @@ export const authOptions: NextAuthConfig = {
         const bcrypt = await import('bcryptjs')
         const isValid = await bcrypt.compare(password, user.passwordHash)
         // #region agent log
-        const logEntry = {location:'lib/auth.ts:52',message:'password check result',data:{isValid,passwordHashLength:user.passwordHash?.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'};
-        console.log('[AUTH DEBUG]', JSON.stringify(logEntry));
-        fetch('http://127.0.0.1:7252/ingest/af4f18b1-607b-409e-9a53-dc7dabb167e7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(logEntry)}).catch(()=>{});
+        const logEntryPassword = {location:'lib/auth.ts:52',message:'password check result',data:{isValid,passwordHashLength:user.passwordHash?.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'};
+        console.log('[AUTH DEBUG]', JSON.stringify(logEntryPassword));
+        fetch('http://127.0.0.1:7252/ingest/af4f18b1-607b-409e-9a53-dc7dabb167e7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(logEntryPassword)}).catch(()=>{});
         // #endregion
 
         if (!isValid) {
