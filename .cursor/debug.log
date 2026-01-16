@@ -1,0 +1,17 @@
+{"location":"api/auth/[...nextauth]/route.ts:POST","message":"POST handler called","data":{"url":"http://localhost:3000/api/auth/signout","method":"POST"},"timestamp":1768603260529,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"api/auth/[...nextauth]/route.ts:POST","message":"POST handler completed","data":{"duration":139,"status":200},"timestamp":1768603260676,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"login/page.tsx:25","message":"Before signIn call","data":{"nextAuthUrl":"not-set"},"timestamp":1768603419041,"sessionId":"debug-session","runId":"run1","hypothesisId":"E"}
+{"location":"login/page.tsx:19","message":"handleSubmit called","data":{"emailLength":20,"hasPassword":true},"timestamp":1768603419041,"sessionId":"debug-session","runId":"run1","hypothesisId":"E"}
+{"location":"api/auth/[...nextauth]/route.ts:POST","message":"POST handler called","data":{"url":"http://localhost:3000/api/auth/callback/credentials","method":"POST"},"timestamp":1768603421071,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"lib/auth.ts:authorize","message":"authorize called","data":{"hasEmail":true,"hasPassword":true,"nodeEnv":"development"},"timestamp":1768603421108,"sessionId":"debug-session","runId":"run1","hypothesisId":"D"}
+{"location":"lib/auth.ts:authorize","message":"Before getDb call","data":{"emailInput":"mixmediaaz..."},"timestamp":1768603421113,"sessionId":"debug-session","runId":"run1","hypothesisId":"A"}
+{"location":"lib/auth.ts:getDb","message":"getDb called","data":{"hasDbUrl":true},"timestamp":1768603421116,"sessionId":"debug-session","runId":"run1","hypothesisId":"A"}
+{"location":"lib/auth.ts:authorize","message":"getDb completed","data":{"duration":12,"hasDb":true},"timestamp":1768603421127,"sessionId":"debug-session","runId":"run1","hypothesisId":"A"}
+{"location":"lib/auth.ts:authorize","message":"Before database query","data":{"emailInput":"mixmediaaz..."},"timestamp":1768603421130,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"lib/auth.ts:authorize","message":"Before withTimeout wrapper","data":{},"timestamp":1768603421138,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"lib/auth.ts:getDb","message":"getDb completed","data":{"duration":5,"hasDb":true},"timestamp":1768603421123,"sessionId":"debug-session","runId":"run1","hypothesisId":"A"}
+{"location":"lib/auth.ts:authorize","message":"Database query completed","data":{"duration":498,"hasUser":true},"timestamp":1768603421632,"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}
+{"location":"lib/auth.ts:authorize","message":"Before password check","data":{"userId":"cmjgo8zlf0001sd9am4srdotw","status":"ACTIVE"},"timestamp":1768603421640,"sessionId":"debug-session","runId":"run1","hypothesisId":"D"}
+{"location":"lib/auth.ts:authorize","message":"Authorize success","data":{"userId":"cmjgo8zlf0001sd9am4srdotw","role":"ADMIN"},"timestamp":1768603422057,"sessionId":"debug-session","runId":"run1","hypothesisId":"D"}
+{"location":"api/auth/[...nextauth]/route.ts:POST","message":"POST handler completed","data":{"duration":1040,"status":200},"timestamp":1768603422123,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"login/page.tsx:35","message":"signIn returned","data":{"duration":3238,"hasResult":true,"ok":true},"timestamp":1768603422280,"sessionId":"debug-session","runId":"run1","hypothesisId":"E"}
