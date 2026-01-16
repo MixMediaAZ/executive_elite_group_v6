@@ -18,18 +18,31 @@ export default function LoginPage() {
     e.preventDefault()
     setError('')
     setLoading(true)
+    const startTime = Date.now()
 
     // #region agent log
+    console.log('[LOGIN CLIENT]', JSON.stringify({location:'app/auth/login/page.tsx:17',message:'login attempt start',data:{email:email.substring(0,20)+'...',emailLength:email.length,hasPassword:!!password},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'}));
     fetch('http://127.0.0.1:7252/ingest/af4f18b1-607b-409e-9a53-dc7dabb167e7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/auth/login/page.tsx:17',message:'login attempt start',data:{email:email.substring(0,20)+'...',emailLength:email.length,hasPassword:!!password},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
     // #endregion
     try {
-      const result = await signIn('credentials', {
-        email,
-        password,
-        redirect: false,
-      })
       // #region agent log
-      fetch('http://127.0.0.1:7252/ingest/af4f18b1-607b-409e-9a53-dc7dabb167e7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/auth/login/page.tsx:29',message:'signIn result',data:{hasResult:!!result,hasError:!!result?.error,error:result?.error,ok:result?.ok,status:result?.status},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+      console.log('[LOGIN CLIENT]', JSON.stringify({location:'app/auth/login/page.tsx:26',message:'calling signIn',data:{timestamp:Date.now()},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'}));
+      fetch('http://127.0.0.1:7252/ingest/af4f18b1-607b-409e-9a53-dc7dabb167e7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/auth/login/page.tsx:26',message:'calling signIn',data:{timestamp:Date.now()},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+      // #endregion
+      const result = await Promise.race([
+        signIn('credentials', {
+          email,
+          password,
+          redirect: false,
+        }),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('SignIn timeout after 30s')), 30000)
+        )
+      ]) as any
+      const elapsed = Date.now() - startTime
+      // #region agent log
+      console.log('[LOGIN CLIENT]', JSON.stringify({location:'app/auth/login/page.tsx:35',message:'signIn result',data:{hasResult:!!result,hasError:!!result?.error,error:result?.error,ok:result?.ok,status:result?.status,elapsedMs:elapsed},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'}));
+      fetch('http://127.0.0.1:7252/ingest/af4f18b1-607b-409e-9a53-dc7dabb167e7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/auth/login/page.tsx:35',message:'signIn result',data:{hasResult:!!result,hasError:!!result?.error,error:result?.error,ok:result?.ok,status:result?.status,elapsedMs:elapsed},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
       // #endregion
 
       if (result?.error) {
@@ -40,10 +53,12 @@ export default function LoginPage() {
         router.refresh()
       }
     } catch (err: any) {
+      const elapsed = Date.now() - startTime
       // #region agent log
-      fetch('http://127.0.0.1:7252/ingest/af4f18b1-607b-409e-9a53-dc7dabb167e7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/auth/login/page.tsx:37',message:'login exception',data:{error:err?.message,errorStack:err?.stack?.substring(0,200)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+      console.log('[LOGIN CLIENT]', JSON.stringify({location:'app/auth/login/page.tsx:48',message:'login exception',data:{error:err?.message,errorStack:err?.stack?.substring(0,200),elapsedMs:elapsed,isTimeout:err?.message?.includes('timeout')},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'}));
+      fetch('http://127.0.0.1:7252/ingest/af4f18b1-607b-409e-9a53-dc7dabb167e7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/auth/login/page.tsx:48',message:'login exception',data:{error:err?.message,errorStack:err?.stack?.substring(0,200),elapsedMs:elapsed,isTimeout:err?.message?.includes('timeout')},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
       // #endregion
-      setError('An error occurred. Please try again.')
+      setError(err?.message?.includes('timeout') ? 'Login request timed out. Please try again.' : 'An error occurred. Please try again.')
       setLoading(false)
     }
   }

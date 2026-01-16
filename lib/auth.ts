@@ -119,21 +119,37 @@ export const authOptions: NextAuthConfig = {
   ],
   callbacks: {
     async jwt({ token, user }) {
+      // #region agent log
+      console.log('[AUTH DEBUG]', JSON.stringify({location:'lib/auth.ts:121',message:'jwt callback entry',data:{hasUser:!!user,hasToken:!!token,userId:user?.id,tokenId:token?.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'F'}));
+      fetch('http://127.0.0.1:7252/ingest/af4f18b1-607b-409e-9a53-dc7dabb167e7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lib/auth.ts:121',message:'jwt callback entry',data:{hasUser:!!user,hasToken:!!token,userId:user?.id,tokenId:token?.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'F'})}).catch(()=>{});
+      // #endregion
       if (user) {
         token.id = user.id
         token.role = user.role
         token.candidateProfileId = user.candidateProfileId
         token.employerProfileId = user.employerProfileId
       }
+      // #region agent log
+      console.log('[AUTH DEBUG]', JSON.stringify({location:'lib/auth.ts:128',message:'jwt callback exit',data:{tokenId:token?.id,tokenRole:token?.role},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'F'}));
+      fetch('http://127.0.0.1:7252/ingest/af4f18b1-607b-409e-9a53-dc7dabb167e7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lib/auth.ts:128',message:'jwt callback exit',data:{tokenId:token?.id,tokenRole:token?.role},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'F'})}).catch(()=>{});
+      // #endregion
       return token
     },
     async session({ session, token }) {
+      // #region agent log
+      console.log('[AUTH DEBUG]', JSON.stringify({location:'lib/auth.ts:130',message:'session callback entry',data:{hasSession:!!session,hasToken:!!token,userId:token?.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'F'}));
+      fetch('http://127.0.0.1:7252/ingest/af4f18b1-607b-409e-9a53-dc7dabb167e7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lib/auth.ts:130',message:'session callback entry',data:{hasSession:!!session,hasToken:!!token,userId:token?.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'F'})}).catch(()=>{});
+      // #endregion
       if (session.user) {
         session.user.id = token.id as string
         session.user.role = token.role as string
         session.user.candidateProfileId = token.candidateProfileId as string | undefined
         session.user.employerProfileId = token.employerProfileId as string | undefined
       }
+      // #region agent log
+      console.log('[AUTH DEBUG]', JSON.stringify({location:'lib/auth.ts:137',message:'session callback exit',data:{sessionUserId:session?.user?.id,sessionUserRole:session?.user?.role},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'F'}));
+      fetch('http://127.0.0.1:7252/ingest/af4f18b1-607b-409e-9a53-dc7dabb167e7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lib/auth.ts:137',message:'session callback exit',data:{sessionUserId:session?.user?.id,sessionUserRole:session?.user?.role},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'F'})}).catch(()=>{});
+      // #endregion
       return session
     },
   },
