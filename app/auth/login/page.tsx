@@ -21,7 +21,16 @@ export default function LoginPage() {
     setError('')
     setLoading(true)
 
+    // #region agent log
+    fetch('http://127.0.0.1:7252/ingest/af4f18b1-607b-409e-9a53-dc7dabb167e7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'login/page.tsx:19',message:'handleSubmit called',data:{emailLength:email.length,hasPassword:!!password},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+    // #endregion
+
     try {
+      // #region agent log
+      fetch('http://127.0.0.1:7252/ingest/af4f18b1-607b-409e-9a53-dc7dabb167e7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'login/page.tsx:25',message:'Before signIn call',data:{nextAuthUrl:process.env.NEXT_PUBLIC_NEXTAUTH_URL||'not-set'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+      // #endregion
+
+      const signInStartTime = Date.now()
       const result = await Promise.race([
         signIn('credentials', {
           email,
@@ -32,6 +41,10 @@ export default function LoginPage() {
           setTimeout(() => reject(new Error('Login request timed out after 30 seconds')), 30000)
         ),
       ]) as any
+
+      // #region agent log
+      fetch('http://127.0.0.1:7252/ingest/af4f18b1-607b-409e-9a53-dc7dabb167e7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'login/page.tsx:35',message:'signIn returned',data:{duration:Date.now()-signInStartTime,hasResult:!!result,ok:result?.ok,error:result?.error},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+      // #endregion
 
       if (result?.error) {
         setError('Invalid email or password. Please check your credentials and try again.')
@@ -44,6 +57,10 @@ export default function LoginPage() {
         setLoading(false)
       }
     } catch (err: any) {
+      // #region agent log
+      fetch('http://127.0.0.1:7252/ingest/af4f18b1-607b-409e-9a53-dc7dabb167e7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'login/page.tsx:46',message:'signIn error caught',data:{errorMessage:err?.message,isTimeout:err?.message?.includes('timeout')},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+      // #endregion
+
       if (err?.message?.includes('timeout')) {
         setError('Login request timed out. The server may be experiencing high load. Please try again in a moment.')
       } else {
