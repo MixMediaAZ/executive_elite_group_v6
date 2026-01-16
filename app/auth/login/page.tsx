@@ -19,12 +19,18 @@ export default function LoginPage() {
     setError('')
     setLoading(true)
 
+    // #region agent log
+    fetch('http://127.0.0.1:7252/ingest/af4f18b1-607b-409e-9a53-dc7dabb167e7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/auth/login/page.tsx:17',message:'login attempt start',data:{email:email.substring(0,20)+'...',emailLength:email.length,hasPassword:!!password},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
     try {
       const result = await signIn('credentials', {
         email,
         password,
         redirect: false,
       })
+      // #region agent log
+      fetch('http://127.0.0.1:7252/ingest/af4f18b1-607b-409e-9a53-dc7dabb167e7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/auth/login/page.tsx:29',message:'signIn result',data:{hasResult:!!result,hasError:!!result?.error,error:result?.error,ok:result?.ok,status:result?.status},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
 
       if (result?.error) {
         setError('Invalid email or password')
@@ -33,7 +39,10 @@ export default function LoginPage() {
         router.push('/dashboard')
         router.refresh()
       }
-    } catch {
+    } catch (err: any) {
+      // #region agent log
+      fetch('http://127.0.0.1:7252/ingest/af4f18b1-607b-409e-9a53-dc7dabb167e7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/auth/login/page.tsx:37',message:'login exception',data:{error:err?.message,errorStack:err?.stack?.substring(0,200)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
       setError('An error occurred. Please try again.')
       setLoading(false)
     }
