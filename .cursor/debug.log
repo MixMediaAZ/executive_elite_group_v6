@@ -6,3 +6,6 @@
 {"location":"app/auth/login/page.tsx:29","message":"signIn result","data":{"hasResult":true,"hasError":false,"ok":true,"status":200},"timestamp":1768540715234,"sessionId":"debug-session","runId":"run1","hypothesisId":"A"}
 {"location":"app/auth/login/page.tsx:17","message":"login attempt start","data":{"email":"mixmediaaz@gmail.com...","emailLength":20,"hasPassword":true},"timestamp":1768541113218,"sessionId":"debug-session","runId":"run1","hypothesisId":"A"}
 {"location":"app/auth/login/page.tsx:29","message":"signIn result","data":{"hasResult":true,"hasError":false,"ok":true,"status":200},"timestamp":1768541114943,"sessionId":"debug-session","runId":"run1","hypothesisId":"A"}
+{"location":"app/auth/login/page.tsx:17","message":"login attempt start","data":{"email":"MixMediaAZ@gmail.com...","emailLength":20,"hasPassword":true},"timestamp":1768541375160,"sessionId":"debug-session","runId":"run1","hypothesisId":"A"}
+{"location":"app/auth/login/page.tsx:26","message":"calling signIn","data":{"timestamp":1768541375161},"timestamp":1768541375161,"sessionId":"debug-session","runId":"run1","hypothesisId":"C"}
+{"location":"app/auth/login/page.tsx:35","message":"signIn result","data":{"hasResult":true,"hasError":false,"ok":true,"status":200,"elapsedMs":1703},"timestamp":1768541376863,"sessionId":"debug-session","runId":"run1","hypothesisId":"A"}

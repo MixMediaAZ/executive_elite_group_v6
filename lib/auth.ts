@@ -56,7 +56,15 @@ export const authOptions: NextAuthConfig = {
         }
 
         // Case-insensitive lookup so existing mixed-case emails still work
-        let user
+        let user: {
+          id: string
+          email: string
+          passwordHash: string
+          role: string
+          status: string
+          candidateProfile: { id: string } | null
+          employerProfile: { id: string } | null
+        } | null
         try {
           const queryPromise = db.user.findFirst({
             where: {
