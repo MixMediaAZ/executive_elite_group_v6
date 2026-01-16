@@ -20,7 +20,7 @@ export const authOptions: NextAuthConfig = {
       },
       async authorize(credentials) {
         // #region agent log
-        const logEntry = {location:'lib/auth.ts:21',message:'authorize entry',data:{hasEmail:!!credentials?.email,hasPassword:!!credentials?.password,emailProvided:credentials?.email?.substring(0,10)+'...',envCheck:{hasDbUrl:!!process.env.DATABASE_URL,hasNextAuthSecret:!!process.env.NEXTAUTH_SECRET}},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'};
+        const logEntry = {location:'lib/auth.ts:21',message:'authorize entry',data:{hasEmail:!!credentials?.email,hasPassword:!!credentials?.password,emailProvided:typeof credentials?.email === 'string' ? credentials.email.substring(0,10)+'...' : 'N/A',envCheck:{hasDbUrl:!!process.env.DATABASE_URL,hasNextAuthSecret:!!process.env.NEXTAUTH_SECRET}},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'};
         console.log('[AUTH DEBUG]', JSON.stringify(logEntry));
         fetch('http://127.0.0.1:7252/ingest/af4f18b1-607b-409e-9a53-dc7dabb167e7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(logEntry)}).catch(()=>{});
         // #endregion
