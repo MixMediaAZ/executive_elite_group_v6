@@ -90,3 +90,4 @@ Create admin: `npm run create-admin`
 All commands work with Windows CMD terminal. See [CMD_COMMANDS.md](./CMD_COMMANDS.md) for reference.
 
 **Note:** If you get Prisma file lock errors, see [FIX_PRISMA_LOCK.md](./FIX_PRISMA_LOCK.md) for solutions.
+
