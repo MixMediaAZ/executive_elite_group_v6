@@ -154,6 +154,10 @@ export const authOptions: NextAuthConfig = {
   },
   session: {
     strategy: 'jwt',
+    // Session max age: 30 days (in seconds)
+    maxAge: 30 * 24 * 60 * 60,
+    // Update session every 24 hours
+    updateAge: 24 * 60 * 60,
   },
   // CRITICAL: Required for Vercel deployment - NextAuth v5 needs to trust the proxy host
   trustHost: true,
@@ -161,6 +165,42 @@ export const authOptions: NextAuthConfig = {
   secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET,
   // Explicitly set base URL for Vercel (NextAuth v5 can infer, but explicit is safer)
   basePath: '/api/auth',
+  // Cookie configuration for production deployments (Vercel, etc.)
+  cookies: {
+    sessionToken: {
+      name: process.env.NODE_ENV === 'production' 
+        ? '__Secure-authjs.session-token' 
+        : 'authjs.session-token',
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: process.env.NODE_ENV === 'production',
+      },
+    },
+    callbackUrl: {
+      name: process.env.NODE_ENV === 'production'
+        ? '__Secure-authjs.callback-url'
+        : 'authjs.callback-url',
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: process.env.NODE_ENV === 'production',
+      },
+    },
+    csrfToken: {
+      name: process.env.NODE_ENV === 'production'
+        ? '__Host-authjs.csrf-token'
+        : 'authjs.csrf-token',
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: process.env.NODE_ENV === 'production',
+      },
+    },
+  },
 }
 
 // Export auth function and handlers for NextAuth v5 beta
