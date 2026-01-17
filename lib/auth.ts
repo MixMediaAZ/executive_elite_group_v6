@@ -159,6 +159,8 @@ export const authOptions: NextAuthConfig = {
   trustHost: true,
   // NextAuth v5 prefers AUTH_SECRET, but fallback to NEXTAUTH_SECRET for backward compatibility
   secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET,
+  // Explicitly set base URL for Vercel (NextAuth v5 can infer, but explicit is safer)
+  basePath: '/api/auth',
 }
 
 // Export auth function and handlers for NextAuth v5 beta

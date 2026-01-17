@@ -3,7 +3,7 @@
 import Image from 'next/image'
 
 import { useState } from 'react'
-import { signIn } from 'next-auth/react'
+import { signIn, getSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Eye, EyeOff } from 'lucide-react'
@@ -22,34 +22,61 @@ export default function LoginPage() {
     setLoading(true)
 
     try {
-      const result = await Promise.race([
-        signIn('credentials', {
-          email,
-          password,
-          redirect: false,
-        }),
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Login request timed out after 30 seconds')), 30000)
-        ),
-      ]) as any
+      // Use a more explicit timeout approach for better error handling
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Login request timed out after 30 seconds')), 30000)
+      )
 
+      const signInPromise = signIn('credentials', {
+        email,
+        password,
+        redirect: false,
+      })
+
+      const result = await Promise.race([signInPromise, timeoutPromise]) as any
+
+      // Handle the response
       if (result?.error) {
         setError('Invalid email or password. Please check your credentials and try again.')
         setLoading(false)
-      } else if (result?.ok) {
+        return
+      }
+
+      // NextAuth v5 beta workaround: manually fetch session after signIn to ensure it's set
+      // This fixes issues where signIn() resolves but session isn't immediately available
+      if (result?.ok || result?.status === 200) {
+        // Fetch session to ensure it's properly set
+        await getSession()
+        
+        // Small delay to ensure session is fully propagated
+        await new Promise(resolve => setTimeout(resolve, 100))
+        
+        // Successful login - redirect to dashboard
         router.push('/dashboard')
         router.refresh()
-      } else {
-        setError('An unexpected error occurred. Please try again.')
-        setLoading(false)
+        return
       }
+
+      // Unexpected response format - check if it's a URL (NextAuth v5 beta sometimes returns URL)
+      if (typeof result === 'string' && result.startsWith('http')) {
+        // NextAuth returned a URL instead of object - this means success
+        await getSession()
+        await new Promise(resolve => setTimeout(resolve, 100))
+        router.push('/dashboard')
+        router.refresh()
+        return
+      }
+
+      // Unexpected response format
+      setError('An unexpected error occurred. Please try again.')
+      setLoading(false)
     } catch (err: any) {
+      setLoading(false)
       if (err?.message?.includes('timeout')) {
         setError('Login request timed out. The server may be experiencing high load. Please try again in a moment.')
       } else {
         setError('An error occurred while signing in. Please try again.')
       }
-      setLoading(false)
     }
   }
 
