@@ -12,7 +12,8 @@ export async function middleware(request: NextRequest) {
 
   const token = await getToken({
     req: request,
-    secret: process.env.NEXTAUTH_SECRET,
+    // NextAuth v5 prefers AUTH_SECRET, but fallback to NEXTAUTH_SECRET for backward compatibility
+    secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET,
   })
 
   const debug = process.env.DEBUG_MW_AUTH === '1'
