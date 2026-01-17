@@ -179,6 +179,8 @@ export const authOptions: NextAuthConfig = {
   // CRITICAL: Required for Vercel deployment - NextAuth v5 needs to trust the proxy host
   trustHost: true,
   secret: process.env.NEXTAUTH_SECRET,
+  // NextAuth v5 also uses AUTH_URL if available
+  basePath: '/api/auth',
 }
 
 // Export auth function and handlers for NextAuth v5 beta

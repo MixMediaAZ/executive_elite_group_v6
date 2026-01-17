@@ -21,29 +21,51 @@ export default function LoginPage() {
     setError('')
     setLoading(true)
 
+    console.log('[CLIENT DEBUG] handleSubmit called', { email: email.substring(0, 10) + '...' })
+
     try {
+      console.log('[CLIENT DEBUG] Before signIn call')
+      const signInStart = Date.now()
+      
       const result = await Promise.race([
         signIn('credentials', {
           email,
           password,
           redirect: false,
+        }).then((res) => {
+          console.log('[CLIENT DEBUG] signIn resolved', {
+            duration: Date.now() - signInStart + 'ms',
+            result: res,
+            ok: (res as any)?.ok,
+            error: (res as any)?.error,
+          })
+          return res
         }),
         new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Login request timed out after 30 seconds')), 30000)
+          setTimeout(() => {
+            console.log('[CLIENT DEBUG] signIn timeout after 30s')
+            reject(new Error('Login request timed out after 30 seconds'))
+          }, 30000)
         ),
       ]) as any
 
+      console.log('[CLIENT DEBUG] After signIn, processing result', { result })
+
       if (result?.error) {
+        console.log('[CLIENT DEBUG] signIn returned error', { error: result.error })
         setError('Invalid email or password. Please check your credentials and try again.')
         setLoading(false)
       } else if (result?.ok) {
+        console.log('[CLIENT DEBUG] signIn succeeded, redirecting to dashboard')
         router.push('/dashboard')
         router.refresh()
       } else {
+        console.log('[CLIENT DEBUG] signIn returned unexpected result', { result })
         setError('An unexpected error occurred. Please try again.')
         setLoading(false)
       }
     } catch (err: any) {
+      console.error('[CLIENT ERROR] signIn exception', { error: err?.message, err })
       if (err?.message?.includes('timeout')) {
         setError('Login request timed out. The server may be experiencing high load. Please try again in a moment.')
       } else {
