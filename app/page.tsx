@@ -5,15 +5,35 @@ import { redirect } from 'next/navigation'
 import HomeSearch from '@/components/home-search'
 
 export default async function Home() {
-  let session = null
+  // Robust session check for Vercel production deployments
+  // Only redirect if we have a valid session with all required fields
+  let shouldRedirect = false
+  
   try {
-    session = await getServerSessionHelper()
+    const session = await getServerSessionHelper()
+    // Only redirect to dashboard if we have a fully valid session
+    // This prevents redirect loops on Vercel when session is partially invalid
+    if (
+      session &&
+      session.user &&
+      typeof session.user.id === 'string' &&
+      session.user.id.length > 0 &&
+      typeof session.user.email === 'string' &&
+      session.user.email.length > 0 &&
+      typeof session.user.role === 'string' &&
+      session.user.role.length > 0
+    ) {
+      shouldRedirect = true
+    }
   } catch (error) {
-    // If auth fails, continue to show home page
-    console.error('Auth check failed:', error instanceof Error ? error.message : String(error))
+    // If auth fails, continue to show home page - do NOT redirect
+    // This is critical for Vercel where auth may fail due to cold starts or config issues
+    if (process.env.NODE_ENV === 'production') {
+      console.error('[Home] Auth check error (showing public page):', error instanceof Error ? error.message : String(error))
+    }
   }
 
-  if (session) {
+  if (shouldRedirect) {
     redirect('/dashboard')
   }
 
