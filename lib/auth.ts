@@ -29,6 +29,13 @@ export const authOptions: NextAuthConfig = {
         password: { label: 'Password', type: 'password' },
       },
       async authorize(credentials) {
+        console.log('[AUTH DEBUG] authorize called', {
+          hasEmail: !!credentials?.email,
+          hasPassword: !!credentials?.password,
+          nodeEnv: process.env.NODE_ENV,
+          timestamp: new Date().toISOString(),
+        })
+
         // Validate environment variables
         if (!process.env.DATABASE_URL) {
           console.error('[AUTH ERROR] DATABASE_URL environment variable is not set')
@@ -40,18 +47,22 @@ export const authOptions: NextAuthConfig = {
         }
 
         if (!credentials?.email || !credentials?.password) {
+          console.log('[AUTH DEBUG] Missing credentials')
           return null
         }
 
         const emailInput = (credentials.email as string).trim().toLowerCase()
         const password = credentials.password as string
+        console.log('[AUTH DEBUG] Before getDb call', { emailInput: emailInput.substring(0, 10) + '...' })
 
         // Lazy load db only when authorize is called (in Node.js runtime, not Edge)
         let db
+        const getDbStart = Date.now()
         try {
           db = await getDb()
+          console.log('[AUTH DEBUG] getDb completed', { duration: Date.now() - getDbStart + 'ms' })
         } catch (dbError: any) {
-          console.error('[AUTH ERROR] Failed to get database connection:', dbError?.message)
+          console.error('[AUTH ERROR] Failed to get database connection:', dbError?.message, { duration: Date.now() - getDbStart })
           return null
         }
 
@@ -66,6 +77,8 @@ export const authOptions: NextAuthConfig = {
           employerProfile: { id: string } | null
         } | null
         try {
+          console.log('[AUTH DEBUG] Starting database query', { emailInput: emailInput.substring(0, 10) + '...' })
+          const queryStart = Date.now()
           const queryPromise = db.user.findFirst({
             where: {
               email: {
@@ -79,12 +92,17 @@ export const authOptions: NextAuthConfig = {
             },
           })
 
+          console.log('[AUTH DEBUG] Before withTimeout wrapper')
           // Add 10-second timeout to database query
           user = await withTimeout(
             queryPromise,
             10000,
             'Database query timeout'
           )
+          console.log('[AUTH DEBUG] Database query completed', {
+            duration: Date.now() - queryStart + 'ms',
+            hasUser: !!user,
+          })
         } catch (queryError: any) {
           if (queryError?.message === 'Database query timeout') {
             console.error('[AUTH ERROR] Database query timed out after 10 seconds')
@@ -95,9 +113,11 @@ export const authOptions: NextAuthConfig = {
         }
 
         if (!user) {
+          console.log('[AUTH DEBUG] User not found')
           return null
         }
 
+        console.log('[AUTH DEBUG] Before password check', { userId: user.id.substring(0, 8) + '...', status: user.status })
         // Lazy load bcryptjs so middleware/edge bundles don't pull in Node-only APIs
         const bcrypt = await import('bcryptjs')
         let isValid: boolean
@@ -109,13 +129,16 @@ export const authOptions: NextAuthConfig = {
         }
 
         if (!isValid) {
+          console.log('[AUTH DEBUG] Password invalid')
           return null
         }
 
         if (user.status !== 'ACTIVE') {
+          console.log('[AUTH DEBUG] User not active', { status: user.status })
           return null
         }
 
+        console.log('[AUTH DEBUG] Authorize success', { userId: user.id.substring(0, 8) + '...', role: user.role })
         return {
           id: user.id,
           email: user.email,
