@@ -14,6 +14,10 @@ export async function middleware(request: NextRequest) {
     req: request,
     // NextAuth v5 prefers AUTH_SECRET, but fallback to NEXTAUTH_SECRET for backward compatibility
     secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET,
+    // Use the same cookie name as configured in auth.ts
+    cookieName: process.env.NODE_ENV === 'production'
+      ? '__Secure-authjs.session-token'
+      : 'authjs.session-token',
   })
 
   const debug = process.env.DEBUG_MW_AUTH === '1'
