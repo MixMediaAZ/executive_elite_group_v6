@@ -28,9 +28,9 @@ export const authOptions: NextAuthConfig = {
         email: { label: 'Email', type: 'email' },
         password: { label: 'Password', type: 'password' },
       },
-      async authorize(credentials, req) {
+      async authorize(credentials) {
         // #region agent log
-        fetch('http://127.0.0.1:7252/ingest/af4f18b1-607b-409e-9a53-dc7dabb167e7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lib/auth.ts:32',message:'authorize called',data:{hasCredentials:!!credentials,hasEmail:!!credentials?.email,origin:req?.headers?.get('origin'),referer:req?.headers?.get('referer'),host:req?.headers?.get('host')},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1,H4'})}).catch(()=>{});
+        fetch('http://127.0.0.1:7252/ingest/af4f18b1-607b-409e-9a53-dc7dabb167e7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lib/auth.ts:32',message:'authorize called',data:{hasCredentials:!!credentials,hasEmail:!!credentials?.email},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1'})}).catch(()=>{});
         // #endregion
         
         // Validate environment variables

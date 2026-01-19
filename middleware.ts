@@ -19,6 +19,19 @@ export async function middleware(request: NextRequest) {
       ? '__Secure-authjs.session-token'
       : 'authjs.session-token',
   })
+  
+  // #region agent log
+  if (pathname.startsWith('/dashboard') || pathname.startsWith('/api/auth')) {
+    console.log('[MW DEBUG]', {
+      pathname,
+      hasToken: Boolean(token),
+      host: request.headers.get('host'),
+      origin: request.headers.get('origin'),
+      referer: request.headers.get('referer'),
+      cookie: request.cookies.get('__Secure-authjs.session-token') ? 'present' : 'missing',
+    })
+  }
+  // #endregion
 
   const debug = process.env.DEBUG_MW_AUTH === '1'
   if (debug) {
