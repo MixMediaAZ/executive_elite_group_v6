@@ -30,7 +30,7 @@ export const authOptions: NextAuthConfig = {
       },
       async authorize(credentials) {
         // #region agent log
-        fetch('http://127.0.0.1:7252/ingest/af4f18b1-607b-409e-9a53-dc7dabb167e7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lib/auth.ts:32',message:'authorize called',data:{hasCredentials:!!credentials,hasEmail:!!credentials?.email},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1'})}).catch(()=>{});
+        console.log('[AUTH DEBUG] authorize called', {hasCredentials:!!credentials,hasEmail:!!credentials?.email})
         // #endregion
         
         // Validate environment variables
@@ -47,7 +47,7 @@ export const authOptions: NextAuthConfig = {
 
         if (!credentials?.email || !credentials?.password) {
           // #region agent log
-          fetch('http://127.0.0.1:7252/ingest/af4f18b1-607b-409e-9a53-dc7dabb167e7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lib/auth.ts:47',message:'missing credentials',data:{hasEmail:!!credentials?.email,hasPassword:!!credentials?.password},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1'})}).catch(()=>{});
+          console.log('[AUTH DEBUG] missing credentials', {hasEmail:!!credentials?.email,hasPassword:!!credentials?.password})
           // #endregion
           return null
         }
@@ -56,7 +56,7 @@ export const authOptions: NextAuthConfig = {
         const password = credentials.password as string
         
         // #region agent log
-        fetch('http://127.0.0.1:7252/ingest/af4f18b1-607b-409e-9a53-dc7dabb167e7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lib/auth.ts:56',message:'credentials parsed',data:{emailPrefix:emailInput.substring(0,5),authUrl:process.env.AUTH_URL,nodeEnv:process.env.NODE_ENV},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H5'})}).catch(()=>{});
+        console.log('[AUTH DEBUG] credentials parsed', {emailPrefix:emailInput.substring(0,5),authUrl:process.env.AUTH_URL,nodeEnv:process.env.NODE_ENV})
         // #endregion
 
         // Lazy load db only when authorize is called (in Node.js runtime, not Edge)
@@ -109,13 +109,13 @@ export const authOptions: NextAuthConfig = {
 
         if (!user) {
           // #region agent log
-          fetch('http://127.0.0.1:7252/ingest/af4f18b1-607b-409e-9a53-dc7dabb167e7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lib/auth.ts:111',message:'user not found',data:{emailPrefix:emailInput.substring(0,5)},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1'})}).catch(()=>{});
+          console.log('[AUTH DEBUG] user not found', {emailPrefix:emailInput.substring(0,5)})
           // #endregion
           return null
         }
         
         // #region agent log
-        fetch('http://127.0.0.1:7252/ingest/af4f18b1-607b-409e-9a53-dc7dabb167e7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lib/auth.ts:117',message:'user found',data:{userId:user.id,role:user.role,status:user.status},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1'})}).catch(()=>{});
+        console.log('[AUTH DEBUG] user found', {userId:user.id,role:user.role,status:user.status})
         // #endregion
 
         // Lazy load bcryptjs so middleware/edge bundles don't pull in Node-only APIs
@@ -130,24 +130,24 @@ export const authOptions: NextAuthConfig = {
 
         if (!isValid) {
           // #region agent log
-          fetch('http://127.0.0.1:7252/ingest/af4f18b1-607b-409e-9a53-dc7dabb167e7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lib/auth.ts:133',message:'password invalid',data:{userId:user.id},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1'})}).catch(()=>{});
+          console.log('[AUTH DEBUG] password invalid', {userId:user.id})
           // #endregion
           return null
         }
         
         // #region agent log
-        fetch('http://127.0.0.1:7252/ingest/af4f18b1-607b-409e-9a53-dc7dabb167e7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lib/auth.ts:139',message:'password valid',data:{userId:user.id},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1'})}).catch(()=>{});
+        console.log('[AUTH DEBUG] password valid', {userId:user.id})
         // #endregion
 
         if (user.status !== 'ACTIVE') {
           // #region agent log
-          fetch('http://127.0.0.1:7252/ingest/af4f18b1-607b-409e-9a53-dc7dabb167e7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lib/auth.ts:145',message:'user not active',data:{userId:user.id,status:user.status},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1'})}).catch(()=>{});
+          console.log('[AUTH DEBUG] user not active', {userId:user.id,status:user.status})
           // #endregion
           return null
         }
         
         // #region agent log
-        fetch('http://127.0.0.1:7252/ingest/af4f18b1-607b-409e-9a53-dc7dabb167e7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lib/auth.ts:151',message:'authorize success',data:{userId:user.id,role:user.role},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1'})}).catch(()=>{});
+        console.log('[AUTH DEBUG] authorize success', {userId:user.id,role:user.role})
         // #endregion
 
         return {

@@ -23,7 +23,7 @@ export default function LoginPage() {
 
     try {
       // #region agent log
-      fetch('http://127.0.0.1:7252/ingest/af4f18b1-607b-409e-9a53-dc7dabb167e7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/auth/login/page.tsx:25',message:'login submit start',data:{emailPrefix:email.substring(0,5),windowLocation:window.location.href,origin:window.location.origin,host:window.location.host},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1,H3,H4,H5'})}).catch(()=>{});
+      console.log('[LOGIN DEBUG] submit start', {emailPrefix:email.substring(0,5),windowLocation:window.location.href,origin:window.location.origin,host:window.location.host})
       // #endregion
       
       // Use a more explicit timeout approach for better error handling
@@ -40,13 +40,13 @@ export default function LoginPage() {
       const result = await Promise.race([signInPromise, timeoutPromise]) as any
       
       // #region agent log
-      fetch('http://127.0.0.1:7252/ingest/af4f18b1-607b-409e-9a53-dc7dabb167e7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/auth/login/page.tsx:41',message:'signIn result',data:{hasResult:!!result,hasError:!!result?.error,hasOk:!!result?.ok,status:result?.status,errorMsg:result?.error},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1,H2'})}).catch(()=>{});
+      console.log('[LOGIN DEBUG] signIn result', {hasResult:!!result,hasError:!!result?.error,hasOk:!!result?.ok,status:result?.status,errorMsg:result?.error})
       // #endregion
 
       // Handle the response
       if (result?.error) {
         // #region agent log
-        fetch('http://127.0.0.1:7252/ingest/af4f18b1-607b-409e-9a53-dc7dabb167e7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/auth/login/page.tsx:48',message:'signIn error path',data:{error:result.error},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1'})}).catch(()=>{});
+        console.log('[LOGIN DEBUG] signIn error path', {error:result.error})
         // #endregion
         setError('Invalid email or password. Please check your credentials and try again.')
         setLoading(false)
@@ -60,7 +60,7 @@ export default function LoginPage() {
         const session = await getSession()
         
         // #region agent log
-        fetch('http://127.0.0.1:7252/ingest/af4f18b1-607b-409e-9a53-dc7dabb167e7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/auth/login/page.tsx:60',message:'session fetched',data:{hasSession:!!session,hasUser:!!session?.user,userId:session?.user?.id},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H2'})}).catch(()=>{});
+        console.log('[LOGIN DEBUG] session fetched', {hasSession:!!session,hasUser:!!session?.user,userId:session?.user?.id})
         // #endregion
         
         // Small delay to ensure session is fully propagated
