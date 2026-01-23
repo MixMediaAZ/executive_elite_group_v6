@@ -327,6 +327,160 @@ Focus on: role alignment, experience level, skills match, cultural fit, and grow
 }
 
 /**
+ * Find matching candidates for a job using AI analysis
+ */
+export async function findMatchesForJob(
+  input: JobMatchingInput
+): Promise<MatchResult[]> {
+  try {
+    // Get job with employer details
+    const job = await db.job.findUnique({
+      where: { id: input.jobId },
+      include: {
+        employer: true,
+        tier: true,
+        applications: {
+          select: { candidateId: true }
+        }
+      }
+    })
+
+    if (!job) {
+      throw new Error('Job not found')
+    }
+
+    if (job.status !== 'LIVE') {
+      throw new Error('Job must be LIVE to find matches')
+    }
+
+    // Get candidate profiles (exclude those who already applied)
+    const appliedCandidateIds = job.applications.map(app => app.candidateId)
+    
+    const candidates = await db.candidateProfile.findMany({
+      where: {
+        ...(appliedCandidateIds.length > 0 && {
+          id: { notIn: appliedCandidateIds }
+        })
+      },
+      include: {
+        user: true
+      },
+      take: input.limit || 20
+    })
+
+    const matches: MatchResult[] = []
+
+    for (const candidate of candidates) {
+      // Prepare data for AI analysis
+      const jobData = {
+        title: job.title,
+        level: job.level,
+        orgType: job.employer.orgType,
+        description: job.descriptionRich,
+        requiredExperience: job.requiredExperienceYears,
+        compensationMin: job.compensationMin,
+        compensationMax: job.compensationMax,
+        location: job.location,
+        remoteAllowed: job.remoteAllowed
+      }
+
+      const candidateData = {
+        currentTitle: candidate.currentTitle,
+        currentOrg: candidate.currentOrg,
+        targetLevels: JSON.parse(candidate.targetLevelsJson || '[]'),
+        preferredSettings: JSON.parse(candidate.preferredSettingsJson || '[]'),
+        serviceLines: JSON.parse(candidate.primaryServiceLinesJson || '[]'),
+        budgetManaged: candidate.budgetManagedMin,
+        teamSize: candidate.teamSizeMin,
+        summary: candidate.summary,
+        location: candidate.primaryLocation,
+        willingToRelocate: candidate.willingToRelocate
+      }
+
+      const prompt = `
+Analyze the candidate match for this job:
+
+JOB REQUIREMENTS:
+- Title: ${jobData.title}
+- Level: ${jobData.level}
+- Organization Type: ${jobData.orgType}
+- Required Experience: ${jobData.requiredExperience || 'Not specified'} years
+- Location: ${jobData.location}
+- Remote Allowed: ${jobData.remoteAllowed ? 'Yes' : 'No'}
+- Compensation: ${jobData.compensationMin && jobData.compensationMax 
+  ? `$${jobData.compensationMin.toLocaleString()} - $${jobData.compensationMax.toLocaleString()}` 
+  : jobData.compensationMax 
+    ? `Up to $${jobData.compensationMax.toLocaleString()}`
+    : 'Not specified'}
+- Description: ${jobData.description.substring(0, 500)}${jobData.description.length > 500 ? '...' : ''}
+
+CANDIDATE PROFILE:
+- Current Title: ${candidateData.currentTitle || 'Not specified'}
+- Current Organization: ${candidateData.currentOrg || 'Not specified'}
+- Target Levels: ${candidateData.targetLevels.length > 0 ? candidateData.targetLevels.join(', ') : 'Not specified'}
+- Preferred Settings: ${candidateData.preferredSettings.length > 0 ? candidateData.preferredSettings.join(', ') : 'Not specified'}
+- Service Lines: ${candidateData.serviceLines.length > 0 ? candidateData.serviceLines.join(', ') : 'Not specified'}
+- Budget Managed: ${candidateData.budgetManaged ? `$${candidateData.budgetManaged.toLocaleString()}` : 'Not specified'}
+- Team Size: ${candidateData.teamSize || 'Not specified'}
+- Location: ${candidateData.location || 'Not specified'}
+- Willing to Relocate: ${candidateData.willingToRelocate ? 'Yes' : 'No'}
+- Summary: ${candidateData.summary || 'Not provided'}
+
+Provide analysis as JSON with:
+- matchScore (0-100)
+- matchingFactors (array of strings)
+- missingRequirements (array of strings)
+- recommendation (STRONG_HIRE/HIRE/MAYBE/PASS)
+
+Focus on: candidate qualifications vs job requirements, experience level match, skills alignment, location compatibility, and growth potential.
+`
+
+      const analysis = await openAiJson<{
+        matchScore: number
+        matchingFactors: string[]
+        missingRequirements: string[]
+        recommendation: string
+      }>(getOpenAI(), {
+        model: getModel(),
+        system:
+          'You are an expert healthcare executive recruiter. Analyze candidate-job matches with precision and provide actionable insights. Always return valid JSON.',
+        user: prompt,
+        temperature: 0.3,
+        maxTokens: 900,
+        timeoutMs: 30_000,
+        retries: 2,
+      })
+
+      matches.push({
+        candidateId: candidate.id,
+        jobId: input.jobId,
+        matchScore: analysis.matchScore,
+        matchingFactors: analysis.matchingFactors,
+        missingRequirements: analysis.missingRequirements,
+        recommendation: analysis.recommendation,
+      })
+    }
+
+    // Sort by match score and log operation
+    matches.sort((a, b) => b.matchScore - a.matchScore)
+    
+    await logAIOperation('job_matching', job.employer.userId, {
+      jobId: input.jobId,
+      matchesGenerated: matches.length,
+      topScore: matches[0]?.matchScore || 0
+    })
+
+    return matches
+  } catch (error) {
+    logger.error(
+      { err: error instanceof Error ? { message: error.message } : { message: String(error) } },
+      'Error in job matching'
+    )
+    throw new Error('Failed to generate job matches')
+  }
+}
+
+/**
  * Advanced resume analysis and parsing
  */
 export async function analyzeResume(

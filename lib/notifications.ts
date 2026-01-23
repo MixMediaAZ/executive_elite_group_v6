@@ -4,6 +4,9 @@
  */
 
 import { db } from './db'
+import { sendEmailToUser } from './email'
+import * as emailTemplates from './email-templates'
+import { logger } from './monitoring/logger'
 
 interface CreateNotificationParams {
   userId: string
@@ -46,7 +49,7 @@ export async function notifyApplicationReceived(
   jobTitle: string,
   candidateName: string
 ) {
-  return createNotification({
+  const notification = await createNotification({
     userId: employerUserId,
     type: 'APPLICATION_RECEIVED',
     title: 'New Application Received',
@@ -54,6 +57,14 @@ export async function notifyApplicationReceived(
     linkUrl: `/dashboard/applications`,
     metadata: { applicationId, jobTitle, candidateName },
   })
+
+  // Send email notification (fire and forget)
+  const { subject, html } = emailTemplates.getApplicationReceivedEmail(jobTitle, candidateName)
+  sendEmailToUser(employerUserId, subject, html).catch((err) => {
+    logger.error({ err, userId: employerUserId }, 'Failed to send application received email')
+  })
+
+  return notification
 }
 
 /**
@@ -65,7 +76,7 @@ export async function notifyApplicationStatusChanged(
   jobTitle: string,
   newStatus: string
 ) {
-  return createNotification({
+  const notification = await createNotification({
     userId: candidateUserId,
     type: 'APPLICATION_STATUS_CHANGED',
     title: 'Application Status Updated',
@@ -73,6 +84,14 @@ export async function notifyApplicationStatusChanged(
     linkUrl: `/dashboard/applications`,
     metadata: { applicationId, jobTitle, status: newStatus },
   })
+
+  // Send email notification (fire and forget)
+  const { subject, html } = emailTemplates.getApplicationStatusChangedEmail(jobTitle, newStatus)
+  sendEmailToUser(candidateUserId, subject, html).catch((err) => {
+    logger.error({ err, userId: candidateUserId }, 'Failed to send application status changed email')
+  })
+
+  return notification
 }
 
 /**
@@ -83,7 +102,7 @@ export async function notifyJobApproved(
   jobId: string,
   jobTitle: string
 ) {
-  return createNotification({
+  const notification = await createNotification({
     userId: employerUserId,
     type: 'JOB_APPROVED',
     title: 'Job Approved',
@@ -91,6 +110,14 @@ export async function notifyJobApproved(
     linkUrl: `/dashboard/jobs/${jobId}`,
     metadata: { jobId, jobTitle },
   })
+
+  // Send email notification (fire and forget)
+  const { subject, html } = emailTemplates.getJobApprovedEmail(jobTitle)
+  sendEmailToUser(employerUserId, subject, html).catch((err) => {
+    logger.error({ err, userId: employerUserId }, 'Failed to send job approved email')
+  })
+
+  return notification
 }
 
 /**
@@ -102,7 +129,7 @@ export async function notifyJobRejected(
   jobTitle: string,
   reason?: string
 ) {
-  return createNotification({
+  const notification = await createNotification({
     userId: employerUserId,
     type: 'JOB_REJECTED',
     title: 'Job Rejected',
@@ -110,13 +137,21 @@ export async function notifyJobRejected(
     linkUrl: `/dashboard/jobs/${jobId}`,
     metadata: { jobId, jobTitle, reason },
   })
+
+  // Send email notification (fire and forget)
+  const { subject, html } = emailTemplates.getJobRejectedEmail(jobTitle, reason)
+  sendEmailToUser(employerUserId, subject, html).catch((err) => {
+    logger.error({ err, userId: employerUserId }, 'Failed to send job rejected email')
+  })
+
+  return notification
 }
 
 /**
  * Create notification when employer is approved
  */
 export async function notifyEmployerApproved(employerUserId: string) {
-  return createNotification({
+  const notification = await createNotification({
     userId: employerUserId,
     type: 'EMPLOYER_APPROVED',
     title: 'Account Approved',
@@ -124,6 +159,14 @@ export async function notifyEmployerApproved(employerUserId: string) {
     linkUrl: '/dashboard/jobs/new',
     metadata: {},
   })
+
+  // Send email notification (fire and forget)
+  const { subject, html } = emailTemplates.getEmployerApprovedEmail()
+  sendEmailToUser(employerUserId, subject, html).catch((err) => {
+    logger.error({ err, userId: employerUserId }, 'Failed to send employer approved email')
+  })
+
+  return notification
 }
 
 /**
@@ -135,7 +178,7 @@ export async function notifyInterviewScheduled(
   jobTitle: string,
   scheduledAt: Date
 ) {
-  return createNotification({
+  const notification = await createNotification({
     userId: candidateUserId,
     type: 'INTERVIEW_SCHEDULED',
     title: 'Interview Scheduled',
@@ -143,6 +186,14 @@ export async function notifyInterviewScheduled(
     linkUrl: `/dashboard/applications`,
     metadata: { interviewId, jobTitle, scheduledAt: scheduledAt.toISOString() },
   })
+
+  // Send email notification (fire and forget)
+  const { subject, html } = emailTemplates.getInterviewScheduledEmail(jobTitle, scheduledAt)
+  sendEmailToUser(candidateUserId, subject, html).catch((err) => {
+    logger.error({ err, userId: candidateUserId }, 'Failed to send interview scheduled email')
+  })
+
+  return notification
 }
 
 /**
@@ -154,7 +205,7 @@ export async function notifyNewMessage(
   senderName: string,
   subject?: string
 ) {
-  return createNotification({
+  const notification = await createNotification({
     userId: recipientUserId,
     type: 'NEW_MESSAGE',
     title: 'New Message',
@@ -162,6 +213,14 @@ export async function notifyNewMessage(
     linkUrl: `/dashboard/messages`,
     metadata: { messageId, senderName, subject },
   })
+
+  // Send email notification (fire and forget)
+  const { subject: emailSubject, html } = emailTemplates.getNewMessageEmail(senderName, subject)
+  sendEmailToUser(recipientUserId, emailSubject, html).catch((err) => {
+    logger.error({ err, userId: recipientUserId }, 'Failed to send new message email')
+  })
+
+  return notification
 }
 
 /**

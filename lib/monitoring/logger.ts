@@ -37,6 +37,7 @@ export const logger = pino({
       'OPENAI_API_KEY',
       'NEXTAUTH_SECRET',
       'STRIPE_SECRET_KEY',
+      'MAILERSEND_API_KEY',
     ],
     remove: true,
   },

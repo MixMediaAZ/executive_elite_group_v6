@@ -1,10 +1,12 @@
 /**
- * AI Job Matching API (Simplified)
+ * AI Job Matching API
  * POST /api/ai/match-job
  */
 
 import { NextRequest } from 'next/server'
+import { findMatchesForJob, isAIConfigured } from '@/lib/ai'
 import { withApiHandler, validateBody, successResponse, errorResponse } from '@/lib/api-helpers'
+import { db } from '@/lib/db'
 import { z } from 'zod'
 
 const schema = z.object({
@@ -13,12 +15,39 @@ const schema = z.object({
 })
 
 export const POST = withApiHandler(
-  async (request: NextRequest) => {
-    const body = await request.json()
-    validateBody(schema, body)
+  async (request: NextRequest, { session }) => {
+    if (!isAIConfigured()) {
+      return errorResponse('AI service not configured', 503)
+    }
 
-    // Placeholder route (future: job -> candidate matching)
-    return successResponse([])
+    const body = await request.json()
+    const validated = validateBody(schema, body)
+
+    // Fetch job to verify ownership
+    const job = await db.job.findUnique({
+      where: { id: validated.jobId },
+      select: { employerId: true }
+    })
+
+    if (!job) {
+      return errorResponse('Job not found', 404)
+    }
+
+    // Employers can only match for their own jobs unless admin
+    if (
+      session.user.role !== 'ADMIN' &&
+      session.user.employerProfileId &&
+      job.employerId !== session.user.employerProfileId
+    ) {
+      return errorResponse('Forbidden', 403)
+    }
+
+    const matches = await findMatchesForJob({
+      jobId: validated.jobId,
+      limit: validated.limit ?? 10,
+    })
+
+    return successResponse(matches)
   },
   {
     requireAuth: true,
