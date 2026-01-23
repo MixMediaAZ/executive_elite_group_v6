@@ -18,6 +18,10 @@ export const metadata: Metadata = {
   title: 'Executive Elite Group',
   description: 'Executive job board for healthcare professionals',
   manifest: '/manifest.json',
+  icons: {
+    icon: '/logo.jpg', // Using logo as favicon fallback
+    apple: '/logo.jpg',
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
