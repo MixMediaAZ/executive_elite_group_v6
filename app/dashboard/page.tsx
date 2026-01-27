@@ -257,7 +257,7 @@ export default async function DashboardPage() {
                           <div className="flex justify-between items-start">
                             <div>
                               <h3 className="font-semibold text-gray-900">{job.title}</h3>
-                              <p className="text-sm text-gray-600 mt-1">{job.employer.orgName} • {job.level}</p>
+                              <p className="text-sm text-gray-600 mt-1">{job.employer?.orgName || 'Unknown Employer'} • {job.level}</p>
                               <p className="text-xs text-gray-500 mt-1">
                                 Submitted: {new Date(job.createdAt).toLocaleDateString()}
                               </p>
@@ -287,7 +287,7 @@ export default async function DashboardPage() {
                       </p>
                       <p>
                         <span className="font-medium text-gray-700">Email:</span>{' '}
-                        <span className="text-gray-900">{candidateProfile.user.email}</span>
+                        <span className="text-gray-900">{candidateProfile.user?.email || session.user.email}</span>
                       </p>
                       <Link
                         href="/dashboard/profile"
@@ -315,9 +315,9 @@ export default async function DashboardPage() {
                     <div className="space-y-4">
                       {applications.map((app: ApplicationWithJob) => (
                         <div key={app.id} className="border-b border-gray-200 pb-4 last:border-0">
-                          <h3 className="font-semibold text-gray-900">{app.job.title}</h3>
+                          <h3 className="font-semibold text-gray-900">{app.job?.title || 'Unknown Job'}</h3>
                           <p className="text-sm text-gray-600 mt-1">
-                            {app.job.employer.orgName} • Status: <span className="font-medium">{app.status}</span>
+                            {app.job?.employer?.orgName || 'Unknown Employer'} • Status: <span className="font-medium">{app.status}</span>
                           </p>
                           <p className="text-xs text-gray-500 mt-1">
                             Applied: {new Date(app.createdAt).toLocaleDateString()}
@@ -351,7 +351,7 @@ export default async function DashboardPage() {
                       </p>
                       <p>
                         <span className="font-medium text-gray-700">Email:</span>{' '}
-                        <span className="text-gray-900">{employerProfile.user.email}</span>
+                        <span className="text-gray-900">{employerProfile.user?.email || session.user.email}</span>
                       </p>
                       <p>
                         <span className="font-medium text-gray-700">Status:</span>{' '}
@@ -396,7 +396,7 @@ export default async function DashboardPage() {
                         <div key={job.id} className="border-b border-gray-200 pb-4 last:border-0">
                           <h3 className="font-semibold text-gray-900">{job.title}</h3>
                           <p className="text-sm text-gray-600 mt-1">
-                            Status: <span className="font-medium">{job.status}</span> • {job._count.applications} applications
+                            Status: <span className="font-medium">{job.status}</span> • {job._count?.applications || 0} applications
                           </p>
                           <p className="text-xs text-gray-500 mt-1">
                             Created: {new Date(job.createdAt).toLocaleDateString()}
