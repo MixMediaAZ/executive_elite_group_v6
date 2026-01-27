@@ -84,43 +84,36 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // Check 5: Try to find both admin emails
+  // Check 5: Try to find both admin emails (test exact match and case-insensitive)
   try {
     const admin1Email = 'mixmediaaz@gmail.com'
     const admin2Email = 'spencer.coon@executiveelitegroup.com'
     
-    const [user1, user2] = await Promise.all([
+    // Test both exact and case-insensitive queries
+    const [user1Exact, user1Insensitive, user2Exact, user2Insensitive] = await Promise.all([
       db.user.findFirst({
-        where: {
-          email: {
-            equals: admin1Email.toLowerCase(),
-            mode: 'insensitive',
-          },
-        },
-        select: {
-          id: true,
-          email: true,
-          role: true,
-          status: true,
-          passwordHash: true,
-        },
+        where: { email: admin1Email.toLowerCase() },
+        select: { id: true, email: true, role: true, status: true },
       }),
       db.user.findFirst({
         where: {
-          email: {
-            equals: admin2Email.toLowerCase(),
-            mode: 'insensitive',
-          },
+          email: { equals: admin1Email.toLowerCase(), mode: 'insensitive' },
         },
-        select: {
-          id: true,
-          email: true,
-          role: true,
-          status: true,
-          passwordHash: true,
+        select: { id: true, email: true, role: true, status: true },
+      }),
+      db.user.findFirst({
+        where: { email: admin2Email.toLowerCase() },
+        select: { id: true, email: true, role: true, status: true },
+      }),
+      db.user.findFirst({
+        where: {
+          email: { equals: admin2Email.toLowerCase(), mode: 'insensitive' },
         },
+        select: { id: true, email: true, role: true, status: true },
       }),
     ])
+    
+    const [user1, user2] = [user1Insensitive || user1Exact, user2Insensitive || user2Exact]
     
     diagnostics.checks.admin1User = {
       status: user1 ? 'FOUND' : 'NOT_FOUND',

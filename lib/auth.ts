@@ -57,7 +57,14 @@ export const authOptions: NextAuthConfig = {
         const password = credentials.password as string
         
         // #region agent log
-        console.log('[AUTH DEBUG] credentials parsed', {emailPrefix:emailInput.substring(0,5),authUrl:process.env.AUTH_URL,nodeEnv:process.env.NODE_ENV})
+        logger.info({
+          emailPrefix: emailInput.substring(0, 10),
+          emailLength: emailInput.length,
+          hasPassword: !!password,
+          passwordLength: password?.length || 0,
+          authUrl: process.env.AUTH_URL,
+          nodeEnv: process.env.NODE_ENV
+        }, '[AUTH] Credentials received')
         // #endregion
 
         // Lazy load db only when authorize is called (in Node.js runtime, not Edge)
@@ -80,6 +87,15 @@ export const authOptions: NextAuthConfig = {
           employerProfile: { id: string } | null
         } | null
         try {
+          // #region agent log
+          logger.info({
+            emailSearched: emailInput,
+            emailLength: emailInput.length,
+            hasDot: emailInput.includes('.'),
+            hasAt: emailInput.includes('@'),
+          }, '[AUTH] Starting user lookup')
+          // #endregion
+          
           const queryPromise = db.user.findFirst({
             where: {
               email: {
@@ -99,6 +115,15 @@ export const authOptions: NextAuthConfig = {
             10000,
             'Database query timeout'
           )
+          
+          // #region agent log
+          logger.info({
+            userFound: !!user,
+            userId: user?.id,
+            userEmail: user?.email,
+            emailMatch: user ? user.email.toLowerCase() === emailInput : false,
+          }, '[AUTH] User lookup completed')
+          // #endregion
         } catch (queryError: any) {
           if (queryError?.message === 'Database query timeout') {
             logger.error({ emailSearched: emailInput }, '[AUTH] Database query timed out after 10 seconds')
@@ -130,7 +155,13 @@ export const authOptions: NextAuthConfig = {
         }
         
         // #region agent log
-        console.log('[AUTH DEBUG] user found', {userId:user.id,role:user.role,status:user.status})
+        logger.info({
+          userId: user.id,
+          userEmail: user.email,
+          role: user.role,
+          status: user.status,
+          emailMatched: user.email.toLowerCase() === emailInput
+        }, '[AUTH] User found')
         // #endregion
 
         // Lazy load bcryptjs so middleware/edge bundles don't pull in Node-only APIs
