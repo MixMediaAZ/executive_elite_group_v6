@@ -55,29 +55,6 @@ export const db = new Proxy({} as any, {
           log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
           errorFormat: 'pretty',
         })
-        
-        // Test connection in development
-        if (process.env.NODE_ENV === 'development') {
-          globalForPrisma.prisma.$connect().catch((error: unknown) => {
-            const errorMessage = error instanceof Error ? error.message : String(error)
-            if (errorMessage.includes('authentication') || errorMessage.includes('password') || errorMessage.includes('credentials')) {
-              console.error('\n❌ Database authentication failed!')
-              console.error('💡 Common fixes:')
-              console.error('1. Check username format: Should be "postgres.xxxxx" (with project ID) for Supabase')
-              console.error('2. Verify password is correct (project password, not account password)')
-              console.error('3. URL-encode special characters in password (!, @, #, $, %, &, =)')
-              console.error('4. Get connection string from: Supabase Dashboard → Settings → Database → Connection string')
-              console.error('5. Use "Session mode" connection string (pooler.supabase.com)')
-              console.error('\n📝 Example format:')
-              console.error('DATABASE_URL="postgresql://postgres.xxxxx:PASSWORD@aws-0-us-west-2.pooler.supabase.com:5432/postgres?sslmode=require"')
-            } else if (errorMessage.includes('Tenant or user not found')) {
-              console.warn('\n⚠️  Database authentication error detected')
-              console.warn('💡 Check your DATABASE_URL credentials in .env file')
-            } else if (errorMessage.includes("Can't reach database server")) {
-              console.warn('\n⚠️  Cannot reach database server')
-            }
-          })
-        }
       } catch (error) {
         throw new Error(
           `Failed to load PrismaClient: ${error instanceof Error ? error.message : String(error)}. ` +

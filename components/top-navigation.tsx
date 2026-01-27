@@ -59,13 +59,12 @@ export default function TopNavigation({ userRole, userEmail }: TopNavigationProp
             <Link href="/dashboard" className="flex items-center gap-3 sm:gap-4 hover:opacity-90 min-h-[44px] sm:min-h-0 group">
               <Image
                 src="/logo.jpg"
-                alt="Executive Elite Group"
+                alt="Logo"
                 className="h-12 sm:h-14 md:h-16 w-auto object-contain flex-shrink-0 transition-transform group-hover:scale-105"
                 width={200}
                 height={200}
                 priority
               />
-              <span className="text-xl sm:text-2xl md:text-3xl font-bold text-eeg-charcoal hidden sm:inline truncate font-serif">Executive Elite Group</span>
             </Link>
           </div>
 

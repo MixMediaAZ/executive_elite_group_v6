@@ -24,9 +24,14 @@ DATABASE_URL="postgresql://postgres:YOUR_PASSWORD@db.fwmlreskkorqrlybtwrt.supaba
 DATABASE_URL="postgresql://postgres:YOUR_PASSWORD@aws-0-us-west-1.pooler.supabase.com:6543/postgres?pgbouncer=true&sslmode=require"
 ```
 
+#### Why use Transaction Pooler?
+
+- Session mode (port 5432) has a very small connection limit and can hit “MaxClients” errors under parallel load.
+- Transaction Pooler (port 6543 + `pgbouncer=true`) reuses connections efficiently and is recommended for app traffic.
+
 ## Steps to Get Your Connection String
 
-1. **Go to Supabase Dashboard**: https://app.supabase.com
+1. **Go to Supabase Dashboard**: <https://app.supabase.com>
 2. **Select your project**
 3. **Go to**: Project Settings → Database
 4. **Look for "Connection string" section**
@@ -74,6 +79,7 @@ npm run prisma:seed
 ### Issue: Password contains special characters
 
 If your password has special characters like `@`, `#`, `%`, etc., you may need to URL-encode them:
+
 - `@` becomes `%40`
 - `#` becomes `%23`
 - `%` becomes `%25`

@@ -4,6 +4,8 @@ import { NextResponse } from 'next/server'
  * Health check endpoint for Vercel deployment
  * Returns 200 if server is running, 500 if critical config is missing
  */
+import { db } from '@/lib/db'
+
 export async function GET() {
   const checks: Record<string, any> = {
     databaseUrl: !!process.env.DATABASE_URL,
@@ -15,10 +17,7 @@ export async function GET() {
   // Test database connection if DATABASE_URL is set
   if (checks.databaseUrl) {
     try {
-      const { PrismaClient } = await import('@prisma/client')
-      const prisma = new PrismaClient()
-      await prisma.$connect()
-      await prisma.$disconnect()
+      await db.$queryRaw`SELECT 1`
       checks.databaseConnection = 'connected'
     } catch (error: any) {
       checks.databaseConnection = 'failed'

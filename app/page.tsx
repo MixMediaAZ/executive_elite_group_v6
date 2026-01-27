@@ -59,13 +59,12 @@ export default async function Home() {
               <Link href="/" className="flex items-center space-x-3 sm:space-x-4 group">
                 <Image
                   src="/logo.jpg"
-                  alt="Executive Elite Group"
+                  alt="Logo"
                   className="h-14 sm:h-16 md:h-20 w-auto object-contain transition-transform group-hover:scale-105"
                   width={200}
                   height={200}
                   priority
                 />
-                <h1 className="text-2xl sm:text-3xl md:text-4xl font-serif font-bold text-eeg-charcoal">Executive Elite Group</h1>
               </Link>
             </div>
             <div className="flex items-center space-x-3 sm:space-x-4">

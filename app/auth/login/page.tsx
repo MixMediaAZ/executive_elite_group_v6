@@ -112,7 +112,7 @@ export default function LoginPage() {
           <Link href="/" className="inline-block mb-6">
             <Image
               src="/logo.jpg"
-              alt="Executive Elite Group"
+              alt="Logo"
               className="h-16 w-auto object-contain mx-auto"
               width={200}
               height={200}
