@@ -168,9 +168,35 @@ export const authOptions: NextAuthConfig = {
         const bcrypt = await import('bcryptjs')
         let isValid: boolean
         try {
+          // #region agent log
+          logger.info({
+            userId: user.id,
+            email: user.email,
+            passwordLength: password?.length || 0,
+            passwordHashPrefix: user.passwordHash?.substring(0, 10) || 'missing',
+            passwordHashLength: user.passwordHash?.length || 0,
+            passwordHasWhitespace: password ? /^\s|\s$/.test(password) : false,
+          }, '[AUTH] Starting password comparison')
+          // #endregion
+          
           isValid = await bcrypt.compare(password, user.passwordHash)
+          
+          // #region agent log
+          logger.info({
+            userId: user.id,
+            email: user.email,
+            isValid,
+          }, '[AUTH] Password comparison result')
+          // #endregion
         } catch (bcryptError: any) {
-          console.error('[AUTH ERROR] Password comparison failed:', bcryptError?.message)
+          logger.error({
+            err: {
+              message: bcryptError?.message,
+              name: bcryptError?.name,
+            },
+            userId: user.id,
+            email: user.email,
+          }, '[AUTH] Password comparison failed')
           return null
         }
 
@@ -180,6 +206,8 @@ export const authOptions: NextAuthConfig = {
             userId: user.id,
             email: user.email,
             passwordHashLength: user.passwordHash?.length || 0,
+            passwordHashPrefix: user.passwordHash?.substring(0, 10) || 'missing',
+            passwordLength: password?.length || 0,
             nodeEnv: process.env.NODE_ENV
           }, '[AUTH] Password invalid')
           // #endregion
