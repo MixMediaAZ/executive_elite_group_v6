@@ -71,7 +71,7 @@ export async function GET(request: NextRequest) {
     diagnostics.checks.adminUsers = {
       status: 'SUCCESS',
       count: adminUsers.length,
-      users: adminUsers.map(u => ({
+      users: adminUsers.map((u: { id: string; email: string; status: string }) => ({
         id: u.id.substring(0, 8) + '...',
         email: u.email,
         status: u.status,
@@ -161,7 +161,7 @@ export async function GET(request: NextRequest) {
     `
     diagnostics.checks.schemas = {
       status: 'SUCCESS',
-      schemas: schemasResult.map(s => s.schema_name),
+      schemas: schemasResult.map((s: { schema_name: string }) => s.schema_name),
     }
   } catch (error: any) {
     diagnostics.checks.schemas = {
