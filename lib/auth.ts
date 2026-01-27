@@ -1,6 +1,7 @@
 import NextAuth from 'next-auth'
 import type { NextAuthConfig } from 'next-auth'
 import CredentialsProvider from 'next-auth/providers/credentials'
+import { logger } from './monitoring/logger'
 
 // Lazy import db to avoid PrismaClient instantiation in Edge Runtime (middleware)
 // db is only used in the authorize callback which runs in Node.js runtime, not Edge
@@ -100,16 +101,30 @@ export const authOptions: NextAuthConfig = {
           )
         } catch (queryError: any) {
           if (queryError?.message === 'Database query timeout') {
-            console.error('[AUTH ERROR] Database query timed out after 10 seconds')
+            logger.error({ emailSearched: emailInput }, '[AUTH] Database query timed out after 10 seconds')
           } else {
-            console.error('[AUTH ERROR] Database query failed:', queryError?.message)
+            logger.error({
+              err: {
+                message: queryError?.message,
+                code: queryError?.code,
+                name: queryError?.name,
+              },
+              emailSearched: emailInput,
+              nodeEnv: process.env.NODE_ENV,
+              databaseUrl: process.env.DATABASE_URL ? process.env.DATABASE_URL.substring(0, 50) + '...' : 'NOT SET'
+            }, '[AUTH] Database query failed')
           }
           return null
         }
 
         if (!user) {
           // #region agent log
-          console.log('[AUTH DEBUG] user not found', {emailPrefix:emailInput.substring(0,5)})
+          logger.warn({
+            emailPrefix: emailInput.substring(0, 5),
+            fullEmail: emailInput,
+            dbConnected: !!db,
+            nodeEnv: process.env.NODE_ENV
+          }, '[AUTH] User not found')
           // #endregion
           return null
         }
@@ -130,7 +145,12 @@ export const authOptions: NextAuthConfig = {
 
         if (!isValid) {
           // #region agent log
-          console.log('[AUTH DEBUG] password invalid', {userId:user.id})
+          logger.warn({
+            userId: user.id,
+            email: user.email,
+            passwordHashLength: user.passwordHash?.length || 0,
+            nodeEnv: process.env.NODE_ENV
+          }, '[AUTH] Password invalid')
           // #endregion
           return null
         }
