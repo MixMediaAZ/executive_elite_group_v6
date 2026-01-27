@@ -354,7 +354,7 @@ export async function findMatchesForJob(
     }
 
     // Get candidate profiles (exclude those who already applied)
-    const appliedCandidateIds = job.applications.map(app => app.candidateId)
+    const appliedCandidateIds = job.applications.map((app: { candidateId: string }) => app.candidateId)
     
     const candidates = await db.candidateProfile.findMany({
       where: {
