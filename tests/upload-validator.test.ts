@@ -2,8 +2,8 @@ import { validateResumeUpload } from '@/lib/security/upload-validator'
 
 function makeFile(name: string, type: string, bytes: Uint8Array): File {
   // Node 20 has File/Blob
+  // @ts-expect-error - Uint8Array is a valid BlobPart at runtime despite type strictness
   const blob = new Blob([bytes], { type })
-  // @ts-expect-error - File ctor exists in Node runtime used by Next/Jest
   return new File([blob], name, { type })
 }
 

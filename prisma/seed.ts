@@ -34,7 +34,7 @@ async function main() {
       })
 
       if (existing) {
-        await prisma.user.update({
+        const updated = await prisma.user.update({
           where: { id: existing.id },
           data: {
             email: admin.email, // normalize stored email going forward
@@ -43,8 +43,14 @@ async function main() {
             status: 'ACTIVE',
           },
         })
+        // Verify password hash was updated correctly
+        const isValid = await bcrypt.compare(admin.password, updated.passwordHash)
+        if (!isValid) {
+          throw new Error(`Failed to update password hash for ${admin.email} - verification failed`)
+        }
+        console.log(`✅ Updated admin: ${admin.email} (password verified)`)
       } else {
-        await prisma.user.create({
+        const created = await prisma.user.create({
           data: {
             email: admin.email,
             passwordHash,
@@ -52,6 +58,12 @@ async function main() {
             status: 'ACTIVE',
           },
         })
+        // Verify password hash was created correctly
+        const isValid = await bcrypt.compare(admin.password, created.passwordHash)
+        if (!isValid) {
+          throw new Error(`Failed to create password hash for ${admin.email} - verification failed`)
+        }
+        console.log(`✅ Created admin: ${admin.email} (password verified)`)
       }
     }
   } else {
