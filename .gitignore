@@ -53,3 +53,7 @@ prisma/migrations/
 
 /.env.local
 /.env.*.local
+
+# IDE and editor files
+.cursor/
+.cursor
