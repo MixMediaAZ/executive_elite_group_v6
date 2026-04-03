@@ -6,9 +6,17 @@
  */
 
 import { db } from './db'
+import type { CandidateProfile, Job, EmployerProfile, JobMatch as PrismaJobMatch } from '@prisma/client'
 
 // Define types locally since Prisma uses String types instead of enums for SQLite compatibility
 type JobLevel = 'C_SUITE' | 'VP' | 'DIRECTOR' | 'MANAGER' | 'OTHER_EXECUTIVE'
+
+// Type for cached match result from database
+type CachedMatchResult = PrismaJobMatch & {
+  job: Job & {
+    employer: EmployerProfile
+  }
+}
 
 export interface JobMatch {
   job: {
@@ -69,14 +77,14 @@ export async function getCandidateJobMatches(
 
     // If we have recent cached matches (less than 24 hours old), use them
     const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000)
-    const recentMatches = cachedMatches.filter((m: any) => m.updatedAt > oneDayAgo)
+    const recentMatches = cachedMatches.filter((m: CachedMatchResult) => m.updatedAt > oneDayAgo)
 
     if (recentMatches.length > 0) {
-      return recentMatches.map((m: any) => ({
+      return recentMatches.map((m: CachedMatchResult) => ({
         job: {
           id: m.job.id,
           title: m.job.title,
-          level: m.job.level as any,
+          level: m.job.level as JobLevel,
           location: m.job.location,
           remoteAllowed: m.job.remoteAllowed,
           employer: {
@@ -86,8 +94,8 @@ export async function getCandidateJobMatches(
           compensationMax: m.job.compensationMax,
         },
         score: m.matchScore,
-        explanation: m.matchReasonsJson 
-          ? JSON.parse(m.matchReasonsJson).join(', ') 
+        explanation: m.matchReasonsJson
+          ? JSON.parse(m.matchReasonsJson).join(', ')
           : 'This role may be a good fit based on your profile.',
       }))
     }
@@ -168,7 +176,7 @@ export async function getCandidateJobMatches(
   return matches
 }
 
-function computeMatch(candidate: any, job: any): JobMatch {
+function computeMatch(candidate: CandidateProfile, job: Job & { employer: EmployerProfile }): JobMatch {
   let score = 0
   const reasons: string[] = []
 
@@ -263,7 +271,7 @@ function computeMatch(candidate: any, job: any): JobMatch {
     job: {
       id: job.id,
       title: job.title,
-      level: job.level,
+      level: job.level as JobLevel,
       location: job.location,
       remoteAllowed: job.remoteAllowed,
       employer: {
@@ -277,7 +285,7 @@ function computeMatch(candidate: any, job: any): JobMatch {
   }
 }
 
-function inferJobSetting(job: any): string | null {
+function inferJobSetting(job: Job & { employer: EmployerProfile }): string | null {
   // Try to infer from org type or job description
   const orgType = job.employer?.orgType || ''
   const settingMap: Record<string, string> = {
