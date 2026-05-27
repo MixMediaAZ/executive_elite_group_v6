@@ -35,8 +35,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   setIfPresent('stripeProductId', (v) => (v ? String(v) : null))
 
   // Cross-field validation when relevant fields are being changed
-  const final = { ...(await db.tier.findUnique({ where: { id: params.id } })), ...data }
-  if (!final) return NextResponse.json({ error: 'Tier not found' }, { status: 404 })
+  const existing = await db.tier.findUnique({ where: { id: params.id } })
+  if (!existing) return NextResponse.json({ error: 'Tier not found' }, { status: 404 })
+  const final = { ...existing, ...data }
   if (final.isSubscription && !final.interval) {
     return NextResponse.json({ error: 'interval is required for subscription tiers' }, { status: 400 })
   }
