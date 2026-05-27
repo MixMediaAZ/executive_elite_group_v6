@@ -39,7 +39,7 @@ export async function createSubscription(
   userId: string,
   employerId: string,
   tierId: string,
-  stripePriceId: string
+  stripePriceIdOverride?: string
 ): Promise<{ subscriptionId: string; clientSecret?: string }> {
   const tier = await db.tier.findUnique({
     where: { id: tierId },
@@ -47,6 +47,15 @@ export async function createSubscription(
 
   if (!tier) {
     throw new Error('Tier not found')
+  }
+
+  // Prefer the override (callers can still pass one), otherwise use the tier's stored Stripe price.
+  const stripePriceId: string | undefined = stripePriceIdOverride || tier.stripePriceId || undefined
+  if (!stripePriceId) {
+    throw new Error('No Stripe price configured for this tier. Set Tier.stripePriceId or pass one explicitly.')
+  }
+  if (!tier.isSubscription) {
+    throw new Error('Tier is not a subscription plan')
   }
 
   const employer = await db.employerProfile.findUnique({
@@ -111,8 +120,11 @@ export async function createSubscription(
       stripePriceId,
       amountCents: tier.priceCents,
       currency: tier.currency,
-      interval: 'month', // Can be determined from Stripe price
-      status: 'ACTIVE',
+      interval: tier.interval || 'month',
+      // Stripe creates with payment_behavior='default_incomplete' — payment not yet confirmed.
+      // We set INCOMPLETE here and let the webhook flip to ACTIVE on invoice.payment_succeeded
+      // or customer.subscription.updated when status=='active'.
+      status: 'INCOMPLETE',
       currentPeriodStart,
       currentPeriodEnd,
     },
@@ -256,12 +268,31 @@ export async function handleSubscriptionWebhook(event: Stripe.Event): Promise<vo
   const currentPeriodEnd =
     firstItem?.current_period_end ? new Date(firstItem.current_period_end * 1000) : null
 
+  const mapStatus = (s: Stripe.Subscription.Status): string => {
+    switch (s) {
+      case 'active':
+      case 'trialing':
+        return 'ACTIVE'
+      case 'past_due':
+        return 'PAST_DUE'
+      case 'incomplete':
+      case 'incomplete_expired':
+        return 'INCOMPLETE'
+      case 'canceled':
+      case 'unpaid':
+        return 'CANCELLED'
+      default:
+        return dbSubscription.status
+    }
+  }
+
   switch (event.type) {
+    case 'customer.subscription.created':
     case 'customer.subscription.updated':
       await db.subscription.update({
         where: { id: dbSubscription.id },
         data: {
-          status: subscription.status === 'active' ? 'ACTIVE' : 'CANCELLED',
+          status: mapStatus(subscription.status),
           currentPeriodStart,
           currentPeriodEnd,
           cancelAtPeriodEnd: subscription.cancel_at_period_end || false,

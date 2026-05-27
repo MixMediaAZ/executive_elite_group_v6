@@ -33,6 +33,37 @@ async function checkDatabase(): Promise<CheckResult> {
   }
 }
 
+async function checkStripe(): Promise<CheckResult> {
+  if (!process.env.STRIPE_SECRET_KEY) {
+    return { status: 'degraded', message: 'STRIPE_SECRET_KEY not set' }
+  }
+  if (!process.env.STRIPE_WEBHOOK_SECRET) {
+    return { status: 'degraded', message: 'STRIPE_WEBHOOK_SECRET not set' }
+  }
+  if (!process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY) {
+    return { status: 'degraded', message: 'NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY not set' }
+  }
+  const start = Date.now()
+  try {
+    const Stripe = (await import('stripe')).default
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2025-10-29.clover' })
+    // Cheap, read-only call — confirms the API key works and Stripe is reachable. No charges.
+    const account = await stripe.accounts.retrieve()
+    const mode = process.env.STRIPE_SECRET_KEY.startsWith('sk_live_') ? 'live' : 'test'
+    return {
+      status: 'ok',
+      latencyMs: Date.now() - start,
+      message: `${mode} mode — account ${account.id}${account.charges_enabled ? '' : ' (charges DISABLED)'}`,
+    }
+  } catch (err) {
+    return {
+      status: 'down',
+      message: err instanceof Error ? err.message : String(err),
+      latencyMs: Date.now() - start,
+    }
+  }
+}
+
 async function checkKv(): Promise<CheckResult> {
   // Vercel KV uses KV_REST_API_URL / KV_REST_API_TOKEN (and friends) under the hood.
   const hasUrl = Boolean(process.env.KV_REST_API_URL)
@@ -93,6 +124,7 @@ export async function GET() {
   const env = checkEnv()
   const database = await checkDatabase()
   const kvCheck = await checkKv()
+  const stripeCheck = await checkStripe()
 
   // Overall status: down if DB is down; degraded if required env is missing.
   const requiredEnvOk = env.DATABASE_URL && env.NEXTAUTH_SECRET && env.NEXTAUTH_URL
@@ -111,6 +143,7 @@ export async function GET() {
       env,
       database,
       kv: kvCheck,
+      stripe: stripeCheck,
       nodeEnv: process.env.NODE_ENV || 'development',
     },
   }

@@ -23,15 +23,13 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { tierId, stripePriceId } = body
+    const { tierId, stripePriceId } = body as { tierId?: string; stripePriceId?: string }
 
-    if (!tierId || !stripePriceId) {
-      return NextResponse.json(
-        { error: 'tierId and stripePriceId are required' },
-        { status: 400 }
-      )
+    if (!tierId) {
+      return NextResponse.json({ error: 'tierId is required' }, { status: 400 })
     }
 
+    // stripePriceId is optional — falls back to Tier.stripePriceId stored in the DB.
     const result = await createSubscription(
       session.user.id,
       session.user.employerProfileId,

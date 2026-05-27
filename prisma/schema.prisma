@@ -123,6 +123,12 @@ model Tier {
   isFeatured   Boolean  @default(false)
   isPremium    Boolean  @default(false)
   active       Boolean  @default(true)
+  // Stripe identifiers — populated when a tier is wired to a Stripe Price/Product.
+  // When set, subscriptions for this tier can be created without passing stripePriceId from the client.
+  stripePriceId   String?
+  stripeProductId String?
+  isSubscription  Boolean @default(false)
+  interval        String? // 'month' | 'year' — set when isSubscription = true
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
