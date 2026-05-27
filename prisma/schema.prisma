@@ -50,11 +50,17 @@ model CandidateProfile {
   userId                String   @unique
 
   fullName              String
+  phone                 String?
   currentTitle          String?
   currentOrg            String?
+  yearsExperience       Int?
   primaryLocation       String?  // city, state, or region
   willingToRelocate     Boolean  @default(false)
   relocationRegionsJson String?  // JSON-serialized array of regions
+
+  narrativeAchievements String?  // free-form achievement narrative
+  videoIntroUrl         String?  // link to a video introduction
+  leadershipMetrics     String?  // quantified leadership impact
 
   preferredSettingsJson String?  // JSON-serialized list of care settings
   preferredEmploymentType String?
@@ -378,5 +384,32 @@ model Subscription {
   @@index([employerId])
   @@index([status])
   @@index([stripeSubscriptionId])
+}
+
+// Site traffic — one row per pageview. Privacy-safe: visitorId is sha256(ip+ua) prefix.
+model PageView {
+  id           String   @id @default(cuid())
+  sessionId    String   // client-generated, persists for the browser session
+  visitorId    String   // sha256(ip+ua) prefix — stable per browser/day for unique counts
+  userId       String?  // set if visitor is authenticated
+  path         String
+  referrer     String?
+  host         String?
+  utmSource    String?
+  utmMedium    String?
+  utmCampaign  String?
+  country      String?
+  durationMs   Int?     // populated by /api/track/heartbeat when page is hidden
+  isJobsBoard  Boolean  @default(false) // quick filter for jobs-board analytics
+  jobId        String?  // populated for /jobs/[id] views
+  createdAt    DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([visitorId, createdAt])
+  @@index([sessionId])
+  @@index([path, createdAt])
+  @@index([isJobsBoard, createdAt])
+  @@index([jobId])
+  @@index([userId, createdAt])
 }
 

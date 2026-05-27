@@ -3,6 +3,8 @@ import { Inter } from 'next/font/google'
 import './globals.css'
 import { Providers } from './providers'
 import { Analytics } from '@vercel/analytics/react'
+import { Suspense } from 'react'
+import PageViewTracker from '@/components/page-view-tracker'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -65,6 +67,9 @@ export default function RootLayout({
       </head>
       <body className={inter.className}>
         <Providers>{children}</Providers>
+        <Suspense fallback={null}>
+          <PageViewTracker />
+        </Suspense>
         <Analytics />
       </body>
     </html>
