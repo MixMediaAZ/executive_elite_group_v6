@@ -46,6 +46,7 @@ export default async function AdminHomePage() {
     { href: '/dashboard/admin', title: 'Admin Console', desc: 'Seed jobs, manage users, view the audit trail' },
     { href: '/dashboard/admin/analytics', title: 'Analytics', desc: 'Platform analytics dashboard' },
     { href: '/admin/traffic', title: 'Website Traffic', desc: 'Pageviews, visitors, top pages, referrers, jobs board activity' },
+    { href: '/admin/tiers', title: 'Pricing & Tiers', desc: 'Configure job-posting prices and subscription plans (Stripe-wired)' },
     { href: '/admin/employers', title: 'Employers', desc: 'Review and manage employer accounts' },
     { href: '/admin/insights', title: 'Insights', desc: 'Platform metrics and audit logs' },
     { href: '/admin/health', title: 'System Health', desc: 'Service and database health checks' },
