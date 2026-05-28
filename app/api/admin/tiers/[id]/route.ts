@@ -16,10 +16,14 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const guard = await requireAdmin()
   if (guard.error) return guard.error
 
-  const body = await req.json().catch(() => ({}))
+  const parsedBody = await req.json().catch(() => null)
+  const body: Record<string, any> =
+    parsedBody && typeof parsedBody === 'object' && !Array.isArray(parsedBody)
+      ? parsedBody
+      : {}
   const data: Record<string, any> = {}
   const setIfPresent = (key: string, transform: (v: any) => any = (v) => v) => {
-    if (key in body) data[key] = transform(body[key])
+    if (Object.prototype.hasOwnProperty.call(body, key)) data[key] = transform(body[key])
   }
   setIfPresent('name', (v) => String(v).slice(0, 200))
   setIfPresent('description', (v) => (v === null ? null : String(v).slice(0, 1000)))
