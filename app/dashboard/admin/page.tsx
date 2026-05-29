@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { getServerSessionHelper } from '@/lib/auth-helpers'
 import DrawerNavigation from '@/components/drawer-navigation'
+import AdminSubNav from '@/components/dashboard/admin-sub-nav'
 import { db } from '@/lib/db'
 import { jobSeedTemplates } from '@/lib/job-seed-templates'
 import AdminJobSeeder from './components/admin-job-seeder'
@@ -88,6 +89,8 @@ export default async function AdminConsolePage() {
                 Seed premium jobs, maintain user access, and review compliance activity.
               </p>
             </div>
+
+            <AdminSubNav />
 
             <div className="grid grid-cols-1 gap-6">
               <AdminJobSeeder

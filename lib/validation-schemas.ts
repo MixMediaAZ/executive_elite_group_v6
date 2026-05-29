@@ -87,8 +87,13 @@ export const applicationCreateSchema = z.object({
 // Profile schemas
 export const candidateProfileUpdateSchema = z.object({
   fullName: z.string().optional(),
+  phone: z.string().optional().nullable(),
   currentTitle: z.string().optional().nullable(),
   currentOrg: z.string().optional().nullable(),
+  yearsExperience: z.number().int().min(0).max(80).optional().nullable(),
+  narrativeAchievements: z.string().optional().nullable(),
+  videoIntroUrl: z.string().url().optional().nullable().or(z.literal('')),
+  leadershipMetrics: z.string().optional().nullable(),
   primaryLocation: z.string().optional().nullable(),
   willingToRelocate: z.boolean().optional(),
   relocationRegionsJson: z.string().optional(),
@@ -106,9 +111,9 @@ export const candidateProfileUpdateSchema = z.object({
   // Legacy fields for backward compatibility
   firstName: z.string().optional(),
   lastName: z.string().optional(),
-  phone: z.string().optional(),
   locationCity: z.string().optional(),
   locationState: z.string().optional(),
+  locationCountry: z.string().optional(),
 })
 
 export const employerProfileUpdateSchema = z.object({

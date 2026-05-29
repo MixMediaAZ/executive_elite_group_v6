@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { db } from '@/lib/db'
@@ -7,6 +8,64 @@ import JobApplyButton from '@/components/job-apply-button'
 import JobSaveButton from '@/components/job-save-button'
 import Breadcrumb from '@/components/breadcrumb'
 import { headers } from 'next/headers'
+import sanitizeHtml from 'sanitize-html'
+
+// Allowed HTML tags and attributes for job descriptions
+const SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
+  allowedTags: [
+    'h1','h2','h3','h4','h5','h6','p','br','strong','em','b','i','u',
+    'ul','ol','li','a','blockquote','hr','span','div',
+  ],
+  allowedAttributes: {
+    a: ['href', 'target', 'rel'],
+    span: ['class'],
+    div: ['class'],
+  },
+  allowedSchemes: ['https', 'http', 'mailto'],
+  transformTags: {
+    // Force external links to open safely
+    a: sanitizeHtml.simpleTransform('a', { target: '_blank', rel: 'noopener noreferrer' }),
+  },
+}
+
+const BASE_URL = 'https://www.executiveelitegroup.com'
+
+export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
+  const job = await db.job.findUnique({
+    where: { id: params.id, status: 'LIVE' },
+    include: { employer: { select: { orgName: true } } },
+  })
+
+  if (!job) return { title: 'Position Not Found | Executive Elite Group' }
+
+  const plainDescription = job.descriptionRich
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .substring(0, 160)
+
+  const title = `${job.title} at ${job.employer.orgName} | Executive Elite Group`
+  const url = `${BASE_URL}/jobs/${job.id}`
+
+  return {
+    title,
+    description: plainDescription,
+    openGraph: {
+      title,
+      description: plainDescription,
+      url,
+      type: 'website',
+      siteName: 'Executive Elite Group',
+      images: [{ url: `${BASE_URL}/logo.jpg`, width: 200, height: 200, alt: 'Executive Elite Group' }],
+    },
+    twitter: {
+      card: 'summary',
+      title,
+      description: plainDescription,
+    },
+    alternates: { canonical: url },
+  }
+}
 
 export default async function PublicJobDetail({ params }: { params: { id: string } }) {
   const session = await getServerSessionHelper()
@@ -112,7 +171,7 @@ export default async function PublicJobDetail({ params }: { params: { id: string
           <div className="border-t border-gray-200 my-6" />
 
           <div className="prose max-w-none">
-            <div dangerouslySetInnerHTML={{ __html: job.descriptionRich }} />
+            <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(job.descriptionRich, SANITIZE_OPTIONS) }} />
           </div>
 
           <div className="mt-8 grid gap-4 bg-gray-50 border border-gray-200 rounded-xl p-4">

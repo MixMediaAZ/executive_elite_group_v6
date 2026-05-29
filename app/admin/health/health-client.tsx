@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import AdminSubNav from '@/components/dashboard/admin-sub-nav'
 
 type FetchState =
   | { status: 'loading' }
@@ -41,6 +42,7 @@ export default function AdminHealthClient() {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-4xl mx-auto px-4 py-10 space-y-8">
+        <AdminSubNav />
         <div>
           <h1 className="text-3xl font-bold text-gray-900">System Health</h1>
           <p className="mt-2 text-sm text-gray-600">

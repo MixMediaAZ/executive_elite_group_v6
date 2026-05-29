@@ -2,43 +2,59 @@ import { getServerSessionHelper } from '@/lib/auth-helpers'
 import { redirect } from 'next/navigation'
 import { db } from '@/lib/db'
 import ApprovalButtons from '@/components/admin-approval-buttons'
+import AdminSubNav from '@/components/dashboard/admin-sub-nav'
+import Pagination from '@/components/dashboard/pagination'
 
-export default async function AdminEmployersPage() {
+const EMPLOYER_PAGE_SIZE = 25
+
+export default async function AdminEmployersPage({
+  searchParams,
+}: {
+  searchParams: { page?: string }
+}) {
   const session = await getServerSessionHelper()
 
   if (!session || session.user.role !== 'ADMIN') {
     redirect('/auth/login')
   }
 
-  // Get all employers, prioritizing those needing approval
-  const employers = await db.employerProfile.findMany({
-    orderBy: [
-      { adminApproved: 'asc' }, // Unapproved first
-      { createdAt: 'desc' },
-    ],
-    include: {
-      user: {
-        select: {
-          email: true,
-          status: true,
-        },
-      },
-      approvedByAdmin: {
-        select: {
-          email: true,
-        },
-      },
-    },
-  })
+  const currentPage = Math.max(1, parseInt(searchParams.page || '1', 10) || 1)
+  const skip = (currentPage - 1) * EMPLOYER_PAGE_SIZE
 
-  type EmployerWithRelations = typeof employers[0]
-  const pendingEmployers = employers.filter((e: EmployerWithRelations) => !e.adminApproved)
-  const approvedEmployers = employers.filter((e: EmployerWithRelations) => e.adminApproved)
+  const employerInclude = {
+    user: {
+      select: { email: true, status: true },
+    },
+    approvedByAdmin: {
+      select: { email: true },
+    },
+  }
+
+  // Pending employers are shown in full (the queue should stay small);
+  // approved employers are paginated.
+  const [pendingEmployers, approvedEmployers, approvedCount] = await Promise.all([
+    db.employerProfile.findMany({
+      where: { adminApproved: false },
+      orderBy: { createdAt: 'desc' },
+      include: employerInclude,
+    }),
+    db.employerProfile.findMany({
+      where: { adminApproved: true },
+      orderBy: { createdAt: 'desc' },
+      include: employerInclude,
+      take: EMPLOYER_PAGE_SIZE,
+      skip,
+    }),
+    db.employerProfile.count({ where: { adminApproved: true } }),
+  ])
+
+  const approvedTotalPages = Math.ceil(approvedCount / EMPLOYER_PAGE_SIZE)
 
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 lg:py-10">
-        <h1 className="text-2xl sm:text-3xl lg:text-4xl font-serif text-eeg-charcoal mb-6 sm:mb-8">Employer Management</h1>
+        <h1 className="text-2xl sm:text-3xl lg:text-4xl font-serif text-eeg-charcoal mb-6">Employer Management</h1>
+        <AdminSubNav />
 
         {/* Pending Approvals */}
         <section className="mb-8 sm:mb-12">
@@ -93,7 +109,9 @@ export default async function AdminEmployersPage() {
 
         {/* Approved Employers */}
         <section>
-          <h2 className="text-xl sm:text-2xl font-serif text-eeg-charcoal mb-4 sm:mb-6">Approved Employers</h2>
+          <h2 className="text-xl sm:text-2xl font-serif text-eeg-charcoal mb-4 sm:mb-6">
+            Approved Employers <span className="text-sm font-sans text-gray-500">({approvedCount} total)</span>
+          </h2>
           {approvedEmployers.length === 0 ? (
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 sm:p-8">
               <p className="text-gray-600 text-center">No approved employers yet.</p>
@@ -140,6 +158,11 @@ export default async function AdminEmployersPage() {
               </div>
             </div>
           )}
+          <Pagination
+            currentPage={currentPage}
+            totalPages={approvedTotalPages}
+            baseHref="/admin/employers"
+          />
         </section>
       </div>
     </div>

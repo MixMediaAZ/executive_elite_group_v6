@@ -12,8 +12,7 @@ interface ProfileFormProps {
 }
 
 interface CandidateFormData {
-  firstName: string
-  lastName: string
+  fullName: string
   phone: string
   locationCity: string
   locationState: string
@@ -26,6 +25,7 @@ interface CandidateFormData {
   videoIntroUrl: string
   leadershipMetrics: string
 }
+
 
 interface EmployerFormData {
   organizationName: string
@@ -44,20 +44,18 @@ function CandidateProfileForm({ profile }: { profile: CandidateProfile | null })
   const [success, setSuccess] = useState(false)
 
   const [formData, setFormData] = useState<CandidateFormData>({
-    // CandidateProfile schema stores fullName + primaryLocation; keep legacy UI fields derived from those.
-    firstName: profile?.fullName?.split(' ')[0] ?? '',
-    lastName: profile?.fullName?.split(' ').slice(1).join(' ') ?? '',
-    phone: '',
+    fullName: profile?.fullName ?? '',
+    phone: profile?.phone ?? '',
     locationCity: profile?.primaryLocation?.split(',')[0]?.trim() ?? '',
     locationState: profile?.primaryLocation?.split(',')[1]?.trim() ?? '',
-    locationCountry: '',
+    locationCountry: profile?.primaryLocation?.split(',')[2]?.trim() ?? '',
     currentTitle: profile?.currentTitle ?? '',
     currentOrg: profile?.currentOrg ?? '',
-    yearsExperience: '',
+    yearsExperience: profile?.yearsExperience ?? '',
     summary: profile?.summary ?? '',
-    narrativeAchievements: '',
-    videoIntroUrl: '',
-    leadershipMetrics: '',
+    narrativeAchievements: profile?.narrativeAchievements ?? '',
+    videoIntroUrl: profile?.videoIntroUrl ?? '',
+    leadershipMetrics: profile?.leadershipMetrics ?? '',
   })
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -70,7 +68,10 @@ function CandidateProfileForm({ profile }: { profile: CandidateProfile | null })
       const response = await fetch('/api/profile', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          ...formData,
+          yearsExperience: formData.yearsExperience === '' ? null : formData.yearsExperience,
+        }),
       })
 
       const data = await response.json()
@@ -105,27 +106,15 @@ function CandidateProfileForm({ profile }: { profile: CandidateProfile | null })
             Profile updated successfully!
           </div>
         )}
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700">First Name</label>
-            <input
-              type="text"
-              className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
-              value={formData.firstName}
-              onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Last Name</label>
-            <input
-              type="text"
-              className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
-              value={formData.lastName}
-              onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-              required
-            />
-          </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700">Full Name</label>
+          <input
+            type="text"
+            className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
+            value={formData.fullName}
+            onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+            required
+          />
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700">Phone</label>
@@ -136,7 +125,7 @@ function CandidateProfileForm({ profile }: { profile: CandidateProfile | null })
             onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
           />
         </div>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700">City</label>
             <input
@@ -189,7 +178,7 @@ function CandidateProfileForm({ profile }: { profile: CandidateProfile | null })
             type="number"
             className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
             value={formData.yearsExperience}
-            onChange={(e) => setFormData({ ...formData, yearsExperience: parseInt(e.target.value) || 0 })}
+            onChange={(e) => setFormData({ ...formData, yearsExperience: e.target.value === '' ? '' : parseInt(e.target.value) || 0 })}
           />
         </div>
         <div>

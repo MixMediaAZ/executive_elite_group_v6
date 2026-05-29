@@ -2,22 +2,34 @@ import { getServerSessionHelper } from '@/lib/auth-helpers'
 import { redirect } from 'next/navigation'
 import { db } from '@/lib/db'
 import Link from 'next/link'
+import AdminSubNav from '@/components/dashboard/admin-sub-nav'
+import Pagination from '@/components/dashboard/pagination'
 
-export default async function AdminInsightsPage() {
+const AUDIT_PAGE_SIZE = 25
+
+export default async function AdminInsightsPage({
+  searchParams,
+}: {
+  searchParams: { page?: string }
+}) {
   const session = await getServerSessionHelper()
 
   if (!session || session.user.role !== 'ADMIN') {
     redirect('/auth/login')
   }
 
+  const currentPage = Math.max(1, parseInt(searchParams.page || '1', 10) || 1)
+  const auditSkip = (currentPage - 1) * AUDIT_PAGE_SIZE
+
   // Get aggregated metrics
-  const [candidates, employers, jobs, applications, auditLogs] = await Promise.all([
+  const [candidates, employers, jobs, applications, auditLogs, auditLogCount] = await Promise.all([
     db.candidateProfile.count(),
     db.employerProfile.count(),
     db.job.count(),
     db.application.count(),
     db.auditLog.findMany({
-      take: 50,
+      take: AUDIT_PAGE_SIZE,
+      skip: auditSkip,
       orderBy: { createdAt: 'desc' },
       include: {
         actor: {
@@ -27,7 +39,10 @@ export default async function AdminInsightsPage() {
         },
       },
     }),
+    db.auditLog.count(),
   ])
+
+  const auditTotalPages = Math.ceil(auditLogCount / AUDIT_PAGE_SIZE)
 
   const approvedEmployers = await db.employerProfile.count({
     where: { adminApproved: true },
@@ -44,40 +59,63 @@ export default async function AdminInsightsPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 lg:py-10">
-        <h1 className="text-2xl sm:text-3xl lg:text-4xl font-serif text-eeg-charcoal mb-6 sm:mb-8">Admin Insights & Analytics</h1>
+        <h1 className="text-2xl sm:text-3xl lg:text-4xl font-serif text-eeg-charcoal mb-6">Admin Insights & Analytics</h1>
+        <AdminSubNav />
 
         {/* Metrics */}
         <section className="mb-8 sm:mb-12">
           <h2 className="text-xl sm:text-2xl font-serif text-eeg-charcoal mb-4 sm:mb-6">Platform Metrics</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 sm:p-6">
-              <h3 className="text-sm font-semibold text-gray-500 mb-2 uppercase tracking-wide">Candidates</h3>
-              <p className="text-3xl sm:text-4xl font-serif text-eeg-charcoal">{candidates}</p>
-            </div>
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 sm:p-6">
-              <h3 className="text-sm font-semibold text-gray-500 mb-2 uppercase tracking-wide">Employers</h3>
-              <p className="text-3xl sm:text-4xl font-serif text-eeg-charcoal">{employers}</p>
-              <p className="text-sm text-gray-600 mt-2">
-                {approvedEmployers} approved, {pendingEmployers} pending
-              </p>
-            </div>
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 sm:p-6">
-              <h3 className="text-sm font-semibold text-gray-500 mb-2 uppercase tracking-wide">Live Jobs</h3>
-              <p className="text-3xl sm:text-4xl font-serif text-eeg-charcoal">{liveJobs}</p>
-            </div>
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 sm:p-6">
-              <h3 className="text-sm font-semibold text-gray-500 mb-2 uppercase tracking-wide">Applications</h3>
-              <p className="text-3xl sm:text-4xl font-serif text-eeg-charcoal">{applications}</p>
-              <p className="text-sm text-gray-600 mt-2">
-                Avg: {avgApplicationsPerJob} per live job
-              </p>
-            </div>
+            <Link
+              href="/dashboard/admin"
+              className="block rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-eeg-blue-electric transition-shadow hover:shadow-md"
+            >
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 sm:p-6">
+                <h3 className="text-sm font-semibold text-gray-500 mb-2 uppercase tracking-wide">Candidates</h3>
+                <p className="text-3xl sm:text-4xl font-serif text-eeg-charcoal">{candidates}</p>
+              </div>
+            </Link>
+            <Link
+              href="/admin/employers"
+              className="block rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-eeg-blue-electric transition-shadow hover:shadow-md"
+            >
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 sm:p-6">
+                <h3 className="text-sm font-semibold text-gray-500 mb-2 uppercase tracking-wide">Employers</h3>
+                <p className="text-3xl sm:text-4xl font-serif text-eeg-charcoal">{employers}</p>
+                <p className="text-sm text-gray-600 mt-2">
+                  {approvedEmployers} approved, {pendingEmployers} pending
+                </p>
+              </div>
+            </Link>
+            <Link
+              href="/jobs"
+              className="block rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-eeg-blue-electric transition-shadow hover:shadow-md"
+            >
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 sm:p-6">
+                <h3 className="text-sm font-semibold text-gray-500 mb-2 uppercase tracking-wide">Live Jobs</h3>
+                <p className="text-3xl sm:text-4xl font-serif text-eeg-charcoal">{liveJobs}</p>
+              </div>
+            </Link>
+            <Link
+              href="/dashboard/applications"
+              className="block rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-eeg-blue-electric transition-shadow hover:shadow-md"
+            >
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 sm:p-6">
+                <h3 className="text-sm font-semibold text-gray-500 mb-2 uppercase tracking-wide">Applications</h3>
+                <p className="text-3xl sm:text-4xl font-serif text-eeg-charcoal">{applications}</p>
+                <p className="text-sm text-gray-600 mt-2">
+                  Avg: {avgApplicationsPerJob} per live job
+                </p>
+              </div>
+            </Link>
           </div>
         </section>
 
         {/* Audit Logs */}
         <section>
-          <h2 className="text-xl sm:text-2xl font-serif text-eeg-charcoal mb-4 sm:mb-6">Recent Audit Logs (Last 50)</h2>
+          <h2 className="text-xl sm:text-2xl font-serif text-eeg-charcoal mb-4 sm:mb-6">
+            Audit Logs <span className="text-sm font-sans text-gray-500">({auditLogCount} total)</span>
+          </h2>
           {auditLogs.length === 0 ? (
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 sm:p-8">
               <p className="text-gray-600 text-center">No audit logs yet.</p>
@@ -125,6 +163,11 @@ export default async function AdminInsightsPage() {
               </div>
             </div>
           )}
+          <Pagination
+            currentPage={currentPage}
+            totalPages={auditTotalPages}
+            baseHref="/admin/insights"
+          />
         </section>
 
         {/* Navigation */}

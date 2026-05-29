@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 import { withApiHandler, successResponse, errorResponse, validateBody } from '@/lib/api-helpers'
 import { z } from 'zod'
 import { logger } from '@/lib/monitoring/logger'
+import { del } from '@vercel/blob'
 
 export const GET = withApiHandler(
   async (_request: NextRequest, { session }) => {
@@ -46,12 +47,14 @@ export const DELETE = withApiHandler(
 
     // Delete physical file if it exists
     try {
-      const { unlink } = await import('fs/promises')
-      const { join } = await import('path')
-      const { existsSync } = await import('fs')
-      
-      // Extract filename from URL (e.g., /resumes/filename.pdf)
-      if (resume.fileUrl.startsWith('/resumes/')) {
+      if (resume.fileUrl.includes('blob.vercel-storage.com')) {
+        // Vercel Blob — delete via SDK
+        await del(resume.fileUrl)
+      } else if (resume.fileUrl.startsWith('/resumes/')) {
+        // Local filesystem (dev only)
+        const { unlink } = await import('fs/promises')
+        const { join } = await import('path')
+        const { existsSync } = await import('fs')
         const fileName = resume.fileUrl.split('/').pop()
         if (fileName) {
           const filePath = join(process.cwd(), 'public', 'resumes', fileName)
@@ -112,7 +115,7 @@ export const PATCH = withApiHandler(
           isPrimary: false,
         },
       })
-      console.log(`Unset ${unsetResult.count} other primary resume(s)`)
+      logger.info({ count: unsetResult.count }, 'Unset other primary resume(s)')
     }
     
     // If unsetting as primary, ensure at least one resume remains primary

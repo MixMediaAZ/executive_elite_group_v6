@@ -6,6 +6,8 @@ import JobApplyButton from '@/components/job-apply-button'
 import JobSaveButton from '@/components/job-save-button'
 import type { Prisma } from '@prisma/client'
 
+const PAGE_SIZE = 20
+
 type JobWithEmployer = Prisma.JobGetPayload<{
   include: {
     employer: {
@@ -17,6 +19,8 @@ type JobWithEmployer = Prisma.JobGetPayload<{
     tier: {
       select: {
         name: true
+        isFeatured: true
+        isPremium: true
       }
     }
   }
@@ -32,6 +36,7 @@ interface JobsPageProps {
     salaryMin?: string
     salaryMax?: string
     department?: string
+    page?: string
   }
 }
 
@@ -39,16 +44,20 @@ export default async function JobsPage({ searchParams }: JobsPageProps) {
   const session = await getServerSessionHelper()
   const { level, orgType, location, remote, salaryMin, salaryMax, department, search } = searchParams
 
+  // Pagination
+  const currentPage = Math.max(1, parseInt(searchParams.page || '1', 10))
+  const skip = (currentPage - 1) * PAGE_SIZE
+
   const whereClause: Prisma.JobWhereInput = {
     status: 'LIVE',
   }
 
-  // Add search query if provided
+  // FIX 1+2: case-insensitive search across title, description, org name
   if (search) {
     whereClause.OR = [
-      { title: { contains: search } },
-      { descriptionRich: { contains: search } },
-      { employer: { orgName: { contains: search } } },
+      { title: { contains: search, mode: 'insensitive' } },
+      { descriptionRich: { contains: search, mode: 'insensitive' } },
+      { employer: { orgName: { contains: search, mode: 'insensitive' } } },
     ]
   }
 
@@ -57,13 +66,12 @@ export default async function JobsPage({ searchParams }: JobsPageProps) {
   }
 
   if (orgType) {
-    whereClause.employer = {
-      orgType: orgType,
-    }
+    whereClause.employer = { orgType }
   }
 
+  // FIX 2: case-insensitive location filter
   if (location) {
-    whereClause.location = { contains: location }
+    whereClause.location = { contains: location, mode: 'insensitive' }
   }
 
   if (remote === 'remote') {
@@ -86,25 +94,34 @@ export default async function JobsPage({ searchParams }: JobsPageProps) {
     }
   }
 
-  const jobs = await db.job.findMany({
-    where: whereClause,
-    include: {
-      employer: {
-        select: {
-          orgName: true,
-          orgType: true,
+  // FIX 1: run count and page in parallel
+  const [totalCount, jobs] = await Promise.all([
+    db.job.count({ where: whereClause }),
+    db.job.findMany({
+      where: whereClause,
+      include: {
+        employer: {
+          select: { orgName: true, orgType: true },
+        },
+        // FIX 3: include tier badge fields
+        tier: {
+          select: { name: true, isFeatured: true, isPremium: true },
         },
       },
-      tier: {
-        select: {
-          name: true,
-        },
-      },
-    },
-    orderBy: {
-      createdAt: 'desc',
-    },
-  })
+      // FIX 3: premium first, then featured, then newest
+      orderBy: [
+        { tier: { isPremium: 'desc' } },
+        { tier: { isFeatured: 'desc' } },
+        { createdAt: 'desc' },
+      ],
+      take: PAGE_SIZE,
+      skip,
+    }),
+  ])
+
+  const totalPages = Math.ceil(totalCount / PAGE_SIZE)
+  const showingFrom = totalCount === 0 ? 0 : skip + 1
+  const showingTo = Math.min(skip + PAGE_SIZE, totalCount)
 
   // Track search analytics
   if (search || level || orgType || location || remote || salaryMin || salaryMax) {
@@ -119,187 +136,302 @@ export default async function JobsPage({ searchParams }: JobsPageProps) {
         salaryMin: salaryMin as string,
         salaryMax: salaryMax as string,
       },
-      jobs.length,
+      totalCount,
       session?.user.id
     )
   }
 
+  // Build URL helper that preserves all filters
+  function buildPageUrl(page: number) {
+    const params = new URLSearchParams()
+    if (search) params.set('search', search)
+    if (level) params.set('level', level)
+    if (orgType) params.set('orgType', orgType)
+    if (location) params.set('location', location)
+    if (remote) params.set('remote', remote)
+    if (salaryMin) params.set('salaryMin', salaryMin)
+    if (salaryMax) params.set('salaryMax', salaryMax)
+    if (department) params.set('department', department)
+    params.set('page', String(page))
+    return `/jobs?${params.toString()}`
+  }
+
   return (
-    <div 
+    <div
       className="min-h-screen bg-neutral-50 relative overflow-x-hidden"
       style={{
         backgroundImage: 'url(/wallpaper.png)',
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundRepeat: 'no-repeat',
-        backgroundAttachment: 'scroll'
+        backgroundAttachment: 'scroll',
       }}
     >
-      <div className="absolute inset-0 bg-white/50"></div>
+      <div className="absolute inset-0 bg-white/50" />
       <div className="relative z-10">
-      <div className="max-w-7xl mx-auto px-6 py-8">
-        <div className="text-center mb-12">
-          <Link href="/" className="inline-block mb-6">
-            <Image 
-              src="/logo.jpg" 
-              alt="Executive Elite Group" 
-              width={200}
-              height={80}
-              className="h-20 w-auto object-contain mx-auto"
-            />
-          </Link>
-          <h1 className="text-4xl font-bold text-neutral-900 mb-2">Executive Opportunities</h1>
-          <p className="text-neutral-600">
-            Browse live healthcare leadership roles across the Executive Elite Group network.
-          </p>
-        </div>
+        <div className="max-w-7xl mx-auto px-6 py-8">
+          <div className="text-center mb-12">
+            <Link href="/" className="inline-block mb-6">
+              <Image
+                src="/logo.jpg"
+                alt="Executive Elite Group"
+                width={200}
+                height={80}
+                className="h-20 w-auto object-contain mx-auto"
+              />
+            </Link>
+            <h1 className="text-4xl font-bold text-neutral-900 mb-2">Executive Opportunities</h1>
+            <p className="text-neutral-600">
+              Browse live healthcare leadership roles across the Executive Elite Group network.
+            </p>
+          </div>
 
-        {/* Filters */}
-        <form className="bg-white rounded-lg border border-neutral-200 p-6 mb-10 grid gap-4 md:grid-cols-4 lg:grid-cols-7" method="GET">
-          <div>
-            <label className="block text-sm font-medium text-neutral-700 mb-1.5">Level</label>
-            <select
-              name="level"
-              defaultValue={level || ''}
-              className="w-full px-4 py-2.5 border border-neutral-300 rounded-lg focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
-            >
-              <option value="">All Levels</option>
-              <option value="C_SUITE">C-Suite</option>
-              <option value="VP">VP</option>
-              <option value="DIRECTOR">Director</option>
-              <option value="MANAGER">Manager</option>
-              <option value="OTHER_EXECUTIVE">Other Executive</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-neutral-700 mb-1.5">Organization Type</label>
-            <select
-              name="orgType"
-              defaultValue={orgType || ''}
-              className="w-full px-4 py-2.5 border border-neutral-300 rounded-lg focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
-            >
-              <option value="">All Types</option>
-              <option value="HEALTH_SYSTEM">Health System</option>
-              <option value="HOSPICE">Hospice</option>
-              <option value="LTC">Long-Term Care</option>
-              <option value="HOME_CARE">Home Care</option>
-              <option value="POST_ACUTE">Post-Acute</option>
-              <option value="OTHER">Other</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-neutral-700 mb-1.5">Location</label>
-            <input
-              type="text"
-              name="location"
-              defaultValue={location || ''}
-              placeholder="City, State, Country"
-              className="w-full px-4 py-2.5 border border-neutral-300 rounded-lg focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-neutral-700 mb-1.5">Work Type</label>
-            <select
-              name="remote"
-              defaultValue={remote || ''}
-              className="w-full px-4 py-2.5 border border-neutral-300 rounded-lg focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
-            >
-              <option value="">All Types</option>
-              <option value="remote">Remote</option>
-              <option value="hybrid">Hybrid</option>
-              <option value="onsite">On-Site</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-neutral-700 mb-1.5">Min Salary</label>
-            <input
-              type="number"
-              name="salaryMin"
-              defaultValue={salaryMin || ''}
-              placeholder="Min"
-              className="w-full px-4 py-2.5 border border-neutral-300 rounded-lg focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-neutral-700 mb-1.5">Max Salary</label>
-            <input
-              type="number"
-              name="salaryMax"
-              defaultValue={salaryMax || ''}
-              placeholder="Max"
-              className="w-full px-4 py-2.5 border border-neutral-300 rounded-lg focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
-            />
-          </div>
-          <div className="flex items-end">
-            <button
-              type="submit"
-              className="w-full bg-primary-600 text-white rounded-lg px-6 py-3 font-semibold hover:bg-primary-700 transition-colors"
-            >
-              Apply Filters
-            </button>
-          </div>
-        </form>
-
-        <div className="space-y-4">
-          {jobs.length === 0 ? (
-            <div className="bg-white rounded-lg border border-neutral-200 p-8 text-center text-neutral-600">
-              No jobs match your filters. Try adjusting the search criteria.
+          {/* Filters */}
+          <form
+            className="bg-white rounded-lg border border-neutral-200 p-6 mb-6 grid gap-4 md:grid-cols-4 lg:grid-cols-7"
+            method="GET"
+          >
+            <div>
+              <label className="block text-sm font-medium text-neutral-700 mb-1.5">Level</label>
+              <select
+                name="level"
+                defaultValue={level || ''}
+                className="w-full px-4 py-2.5 border border-neutral-300 rounded-lg focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
+              >
+                <option value="">All Levels</option>
+                <option value="C_SUITE">C-Suite</option>
+                <option value="VP">VP</option>
+                <option value="DIRECTOR">Director</option>
+                <option value="MANAGER">Manager</option>
+                <option value="OTHER_EXECUTIVE">Other Executive</option>
+              </select>
             </div>
-          ) : (
-            jobs.map((job: JobWithEmployer) => (
-              <div key={job.id} className="group bg-white rounded-lg border border-neutral-200 p-6 hover:shadow-lg hover:border-primary-500 transition-all duration-200">
-                <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
-                  <div className="flex-1">
-                    <Link href={`/jobs/${job.id}`} className="text-xl font-semibold text-neutral-900 group-hover:text-primary-700 transition-colors">
-                      {job.title}
-                    </Link>
-                    <p className="text-sm text-neutral-600 mt-2">
-                      {job.employer.orgName} • {job.level.replace(/_/g, ' ')}
-                    </p>
-                    {job.location && (
-                      <p className="text-sm text-neutral-600">
-                        📍 {job.location}
-                        {job.remoteAllowed && ' • Remote'}
-                      </p>
-                    )}
-                    {job.compensationMin && job.compensationMax && (
-                      <p className="text-sm text-primary-700 font-semibold mt-2">
-                        ${job.compensationMin.toLocaleString()} - ${job.compensationMax.toLocaleString()}
-                      </p>
-                    )}
-                    <p className="text-sm text-neutral-700 mt-3 line-clamp-2">
-                      {job.descriptionRich.replace(/<[^>]*>/g, '').substring(0, 220)}...
-                    </p>
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <Link
-                      href={`/jobs/${job.id}`}
-                      className="px-6 py-3 border-2 border-neutral-300 rounded-lg font-semibold text-neutral-700 hover:border-primary-500 hover:text-primary-700"
-                    >
-                      View Details
-                    </Link>
-                    {session?.user.role === 'CANDIDATE' ? (
-                      <div className="flex gap-2">
-                        <JobApplyButton jobId={job.id} />
-                        <JobSaveButton jobId={job.id} />
-                      </div>
-                    ) : (
-                      <Link
-                        href="/auth/login"
-                        className="text-sm text-neutral-600 text-center hover:text-primary-700"
-                      >
-                        Sign in to apply
-                      </Link>
-                    )}
-                  </div>
-                </div>
+            <div>
+              <label className="block text-sm font-medium text-neutral-700 mb-1.5">Organization Type</label>
+              <select
+                name="orgType"
+                defaultValue={orgType || ''}
+                className="w-full px-4 py-2.5 border border-neutral-300 rounded-lg focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
+              >
+                <option value="">All Types</option>
+                <option value="HEALTH_SYSTEM">Health System</option>
+                <option value="HOSPICE">Hospice</option>
+                <option value="LTC">Long-Term Care</option>
+                <option value="HOME_CARE">Home Care</option>
+                <option value="POST_ACUTE">Post-Acute</option>
+                <option value="OTHER">Other</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-neutral-700 mb-1.5">Location</label>
+              <input
+                type="text"
+                name="location"
+                defaultValue={location || ''}
+                placeholder="City, State, Country"
+                className="w-full px-4 py-2.5 border border-neutral-300 rounded-lg focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-neutral-700 mb-1.5">Work Type</label>
+              <select
+                name="remote"
+                defaultValue={remote || ''}
+                className="w-full px-4 py-2.5 border border-neutral-300 rounded-lg focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
+              >
+                <option value="">All Types</option>
+                <option value="remote">Remote</option>
+                <option value="hybrid">Hybrid</option>
+                <option value="onsite">On-Site</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-neutral-700 mb-1.5">Min Salary</label>
+              <input
+                type="number"
+                name="salaryMin"
+                defaultValue={salaryMin || ''}
+                placeholder="Min"
+                className="w-full px-4 py-2.5 border border-neutral-300 rounded-lg focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-neutral-700 mb-1.5">Max Salary</label>
+              <input
+                type="number"
+                name="salaryMax"
+                defaultValue={salaryMax || ''}
+                placeholder="Max"
+                className="w-full px-4 py-2.5 border border-neutral-300 rounded-lg focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
+              />
+            </div>
+            <div className="flex items-end">
+              <button
+                type="submit"
+                className="w-full bg-eeg-blue-600 text-white rounded-lg px-6 py-3 font-semibold hover:bg-eeg-blue-700 transition-colors"
+              >
+                Search
+              </button>
+            </div>
+          </form>
+
+          {/* Result count */}
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-sm text-neutral-600">
+              {totalCount === 0
+                ? 'No positions found'
+                : `Showing ${showingFrom}–${showingTo} of ${totalCount} position${totalCount !== 1 ? 's' : ''}`}
+            </p>
+            {(search || level || orgType || location || remote || salaryMin || salaryMax) && (
+              <Link href="/jobs" className="text-sm text-eeg-blue-600 hover:underline">
+                Clear filters
+              </Link>
+            )}
+          </div>
+
+          {/* Job cards */}
+          <div className="space-y-4">
+            {jobs.length === 0 ? (
+              <div className="bg-white rounded-lg border border-neutral-200 p-12 text-center">
+                <p className="text-neutral-500 text-lg mb-2">No positions match your criteria</p>
+                <p className="text-neutral-400 text-sm mb-6">Try broadening your search or clearing the filters</p>
+                <Link href="/jobs" className="inline-flex px-5 py-2 bg-eeg-blue-600 text-white rounded-lg font-semibold hover:bg-eeg-blue-700 transition-colors">
+                  View all positions
+                </Link>
               </div>
-            ))
+            ) : (
+              jobs.map((job: JobWithEmployer) => {
+                const isPremium = job.tier?.isPremium
+                const isFeatured = job.tier?.isFeatured
+
+                return (
+                  <div
+                    key={job.id}
+                    className={`group bg-white rounded-lg border p-6 hover:shadow-lg transition-all duration-200 ${
+                      isPremium
+                        ? 'border-amber-300 ring-1 ring-amber-200'
+                        : isFeatured
+                        ? 'border-eeg-blue-300 ring-1 ring-eeg-blue-100'
+                        : 'border-neutral-200 hover:border-eeg-blue-400'
+                    }`}
+                  >
+                    <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+                      <div className="flex-1">
+                        {/* FIX 3: tier badges */}
+                        <div className="flex flex-wrap gap-2 mb-2">
+                          {isPremium && (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-200">
+                              ★ Premium
+                            </span>
+                          )}
+                          {isFeatured && !isPremium && (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-eeg-blue-50 text-eeg-blue-700 border border-eeg-blue-200">
+                              ✦ Featured
+                            </span>
+                          )}
+                        </div>
+
+                        <Link
+                          href={`/jobs/${job.id}`}
+                          className="text-xl font-semibold text-neutral-900 group-hover:text-eeg-blue-700 transition-colors"
+                        >
+                          {job.title}
+                        </Link>
+                        <p className="text-sm text-neutral-600 mt-1">
+                          {job.employer.orgName} • {job.level.replace(/_/g, ' ')}
+                        </p>
+                        {job.location && (
+                          <p className="text-sm text-neutral-500 mt-1">
+                            📍 {job.location}
+                            {job.remoteAllowed && ' • Remote Available'}
+                          </p>
+                        )}
+                        {job.compensationMin && job.compensationMax && (
+                          <p className="text-sm font-semibold text-eeg-blue-700 mt-2">
+                            ${job.compensationMin.toLocaleString()} – ${job.compensationMax.toLocaleString()}
+                          </p>
+                        )}
+                        <p className="text-sm text-neutral-600 mt-3 line-clamp-2">
+                          {job.descriptionRich.replace(/<[^>]*>/g, '').substring(0, 220)}
+                        </p>
+                      </div>
+                      <div className="flex flex-col gap-2 min-w-[140px]">
+                        <Link
+                          href={`/jobs/${job.id}`}
+                          className="px-5 py-2.5 border-2 border-neutral-300 rounded-lg font-semibold text-neutral-700 hover:border-eeg-blue-500 hover:text-eeg-blue-700 text-center transition-colors"
+                        >
+                          View Details
+                        </Link>
+                        {session?.user.role === 'CANDIDATE' ? (
+                          <div className="flex gap-2">
+                            <JobApplyButton jobId={job.id} />
+                            <JobSaveButton jobId={job.id} />
+                          </div>
+                        ) : (
+                          <Link
+                            href="/auth/login"
+                            className="text-sm text-neutral-500 text-center hover:text-eeg-blue-700 transition-colors"
+                          >
+                            Sign in to apply
+                          </Link>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )
+              })
+            )}
+          </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-2 mt-10">
+              {currentPage > 1 && (
+                <Link
+                  href={buildPageUrl(currentPage - 1)}
+                  className="px-4 py-2 border border-neutral-300 rounded-lg text-sm font-medium text-neutral-700 hover:border-eeg-blue-500 hover:text-eeg-blue-700 transition-colors"
+                >
+                  ← Previous
+                </Link>
+              )}
+
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter((p) => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 2)
+                .reduce<(number | '...')[]>((acc, p, idx, arr) => {
+                  if (idx > 0 && p - (arr[idx - 1] as number) > 1) acc.push('...')
+                  acc.push(p)
+                  return acc
+                }, [])
+                .map((item, idx) =>
+                  item === '...' ? (
+                    <span key={`ellipsis-${idx}`} className="px-2 text-neutral-400">…</span>
+                  ) : (
+                    <Link
+                      key={item}
+                      href={buildPageUrl(item as number)}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                        item === currentPage
+                          ? 'bg-eeg-blue-600 text-white'
+                          : 'border border-neutral-300 text-neutral-700 hover:border-eeg-blue-500 hover:text-eeg-blue-700'
+                      }`}
+                    >
+                      {item}
+                    </Link>
+                  )
+                )}
+
+              {currentPage < totalPages && (
+                <Link
+                  href={buildPageUrl(currentPage + 1)}
+                  className="px-4 py-2 border border-neutral-300 rounded-lg text-sm font-medium text-neutral-700 hover:border-eeg-blue-500 hover:text-eeg-blue-700 transition-colors"
+                >
+                  Next →
+                </Link>
+              )}
+            </div>
           )}
         </div>
-      </div>
       </div>
     </div>
   )
 }
-

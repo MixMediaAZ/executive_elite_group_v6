@@ -1,3 +1,5 @@
+import Link from 'next/link'
+
 export default function PendingApprovalPage() {
   return (
     <div className="min-h-screen bg-gray-50 py-6 sm:py-8 lg:py-12 px-4 sm:px-6 lg:px-8">
@@ -18,6 +20,12 @@ export default function PendingApprovalPage() {
           <p className="text-sm text-gray-500">
             In the meantime, you can update your profile information if needed.
           </p>
+          <Link
+            href="/dashboard/profile"
+            className="inline-block mt-6 px-6 py-3 bg-gradient-to-r from-eeg-blue-500 to-eeg-blue-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all"
+          >
+            Edit Profile
+          </Link>
         </div>
       </div>
     </div>

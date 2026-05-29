@@ -32,13 +32,20 @@ export const PUT = withApiHandler(
       if (validated.ehrExperienceJson !== undefined) updateData.ehrExperienceJson = sanitizePlainText(validated.ehrExperienceJson, { maxLen: 20_000 })
       if (validated.regulatoryExperienceJson !== undefined) updateData.regulatoryExperienceJson = sanitizePlainText(validated.regulatoryExperienceJson, { maxLen: 20_000 })
       if (validated.summary !== undefined) updateData.summary = validated.summary ? sanitizePlainText(validated.summary, { maxLen: 20_000 }) : null
+      if (validated.phone !== undefined) updateData.phone = validated.phone ? sanitizePlainText(validated.phone, { maxLen: 40 }) : null
+      if (validated.yearsExperience !== undefined) updateData.yearsExperience = validated.yearsExperience
+      if (validated.narrativeAchievements !== undefined) updateData.narrativeAchievements = validated.narrativeAchievements ? sanitizePlainText(validated.narrativeAchievements, { maxLen: 20_000 }) : null
+      if (validated.videoIntroUrl !== undefined) updateData.videoIntroUrl = validated.videoIntroUrl ? sanitizePlainText(validated.videoIntroUrl, { maxLen: 500 }) : null
+      if (validated.leadershipMetrics !== undefined) updateData.leadershipMetrics = validated.leadershipMetrics ? sanitizePlainText(validated.leadershipMetrics, { maxLen: 20_000 }) : null
 
       // Legacy fields for backward compatibility
       if (validated.firstName !== undefined && validated.lastName !== undefined) {
         updateData.fullName = sanitizePlainText(`${validated.firstName} ${validated.lastName}`.trim(), { maxLen: 120 })
       }
-      if (validated.locationCity !== undefined || validated.locationState !== undefined) {
-        const locationParts = [validated.locationCity, validated.locationState].filter(Boolean).map((p) => sanitizePlainText(String(p), { maxLen: 60 }))
+      if (validated.locationCity !== undefined || validated.locationState !== undefined || validated.locationCountry !== undefined) {
+        const locationParts = [validated.locationCity, validated.locationState, validated.locationCountry]
+          .filter(Boolean)
+          .map((p) => sanitizePlainText(String(p), { maxLen: 60 }))
         if (locationParts.length > 0) updateData.primaryLocation = locationParts.join(', ')
       }
 

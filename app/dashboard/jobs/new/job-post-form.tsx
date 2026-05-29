@@ -104,7 +104,7 @@ export default function JobPostForm({ defaultTierId }: JobPostFormProps) {
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-neutral-700 mb-1.5">Level *</label>
           <select
@@ -131,7 +131,7 @@ export default function JobPostForm({ defaultTierId }: JobPostFormProps) {
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div>
           <label className="block text-sm font-medium text-neutral-700 mb-1.5">City</label>
           <input
@@ -182,7 +182,7 @@ export default function JobPostForm({ defaultTierId }: JobPostFormProps) {
         </label>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-neutral-700 mb-1.5">Salary Min ($)</label>
           <input

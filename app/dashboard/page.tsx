@@ -5,19 +5,53 @@ import Link from 'next/link'
 import TopNavigation from '@/components/top-navigation'
 import DrawerNavigation from '@/components/drawer-navigation'
 import ApprovalButtons from '@/components/admin-approval-buttons'
-import type { CandidateProfile, EmployerProfile, Application, Job, User } from '@prisma/client'
+import StatCard from '@/components/dashboard/stat-card'
+import ProfileStrengthMeter from '@/components/dashboard/profile-strength-meter'
+import DashboardSection from '@/components/dashboard/dashboard-section'
+import StatusPill from '@/components/dashboard/status-pill'
+import { computeProfileCompleteness, type ProfileCompleteness } from '@/lib/profile-completeness'
+import type {
+  CandidateProfile,
+  EmployerProfile,
+  Application,
+  Job,
+  User,
+  SavedJob,
+  JobMatch,
+} from '@prisma/client'
 
 type CandidateWithUser = CandidateProfile & { user: Pick<User, 'email'> }
 type EmployerWithUser = EmployerProfile & { user: Pick<User, 'email'> }
 type ApplicationWithJob = Application & { job: Job & { employer: Pick<EmployerProfile, 'orgName'> } }
-type EmployerJobSummary = Job & { _count: { applications: number } }
+type EmployerJobSummary = Job & { _count: { applications: number; views: number } }
 type PendingJobSummary = Job & { employer: Pick<EmployerProfile, 'orgName'> }
+type SavedJobWithJob = SavedJob & { job: Job & { employer: Pick<EmployerProfile, 'orgName'> } }
+type JobMatchWithJob = JobMatch & { job: Job & { employer: Pick<EmployerProfile, 'orgName'> } }
+type RecentApplicant = Application & {
+  job: Pick<Job, 'id' | 'title'>
+  candidate: Pick<CandidateProfile, 'fullName'>
+}
 
 interface AdminStats {
   totalCandidates: number
   totalEmployers: number
   liveJobs: number
   totalApplications: number
+}
+
+interface CandidateStats {
+  totalApplications: number
+  applicationsThisMonth: number
+  savedJobs: number
+  newMatches: number
+}
+
+interface EmployerStats {
+  liveJobs: number
+  pendingJobs: number
+  totalApplications: number
+  applicationsThisWeek: number
+  totalViews: number
 }
 
 type PrismaLikeError = {
@@ -44,6 +78,12 @@ export default async function DashboardPage() {
   let employerProfile: EmployerWithUser | null = null
   let jobs: EmployerJobSummary[] = []
   let applications: ApplicationWithJob[] = []
+  let candidateStats: CandidateStats | null = null
+  let profileCompleteness: ProfileCompleteness | null = null
+  let employerStats: EmployerStats | null = null
+  let savedJobsList: SavedJobWithJob[] = []
+  let jobMatchesList: JobMatchWithJob[] = []
+  let recentApplicants: RecentApplicant[] = []
 
   // Admin dashboard data
   let pendingEmployers: EmployerWithUser[] = []
@@ -52,11 +92,32 @@ export default async function DashboardPage() {
   let dbUnavailableMessage: string | null = null
 
   if (session.user.role === 'CANDIDATE' && session.user.candidateProfileId) {
-    // Optimized query: get candidate profile and recent applications in parallel
+    // Optimized query: candidate profile, recent applications and KPI counts in parallel
+    const candidateId = session.user.candidateProfileId
+    const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1)
     try {
-      const [candidateResult, applicationsResult] = await Promise.all([
+      const jobWithEmployerInclude = {
+        job: {
+          include: {
+            employer: {
+              select: { orgName: true },
+            },
+          },
+        },
+      }
+      const [
+        candidateResult,
+        applicationsResult,
+        totalApplications,
+        applicationsThisMonth,
+        savedJobs,
+        newMatches,
+        resumeCount,
+        savedJobsResult,
+        matchesResult,
+      ] = await Promise.all([
         db.candidateProfile.findUnique({
-          where: { id: session.user.candidateProfileId },
+          where: { id: candidateId },
           include: {
             user: {
               select: { email: true },
@@ -64,23 +125,36 @@ export default async function DashboardPage() {
           },
         }),
         db.application.findMany({
-          where: { candidateId: session.user.candidateProfileId },
-          include: {
-            job: {
-              include: {
-                employer: {
-                  select: { orgName: true },
-                },
-              },
-            },
-          },
+          where: { candidateId },
+          include: jobWithEmployerInclude,
           orderBy: { createdAt: 'desc' },
           take: 5,
-        })
+        }),
+        db.application.count({ where: { candidateId } }),
+        db.application.count({ where: { candidateId, createdAt: { gte: startOfMonth } } }),
+        db.savedJob.count({ where: { candidateId } }),
+        db.jobMatch.count({ where: { candidateId, viewed: false } }),
+        db.resume.count({ where: { candidateId } }),
+        db.savedJob.findMany({
+          where: { candidateId },
+          include: jobWithEmployerInclude,
+          orderBy: { savedAt: 'desc' },
+          take: 3,
+        }),
+        db.jobMatch.findMany({
+          where: { candidateId },
+          include: jobWithEmployerInclude,
+          orderBy: { matchScore: 'desc' },
+          take: 3,
+        }),
       ])
-      
+
       candidateProfile = candidateResult
       applications = applicationsResult
+      candidateStats = { totalApplications, applicationsThisMonth, savedJobs, newMatches }
+      profileCompleteness = computeProfileCompleteness(candidateResult, resumeCount)
+      savedJobsList = savedJobsResult
+      jobMatchesList = matchesResult
     } catch (error: unknown) {
       const maybe = error as PrismaLikeError
       if (isDatabaseConnectionError(maybe)) {
@@ -90,11 +164,22 @@ export default async function DashboardPage() {
       }
     }
   } else if (session.user.role === 'EMPLOYER' && session.user.employerProfileId) {
-    // Optimized query: get employer profile and recent jobs in parallel
+    // Optimized query: employer profile, recent jobs and KPI counts in parallel
+    const employerId = session.user.employerProfileId
+    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
     try {
-      const [employerResult, jobsResult] = await Promise.all([
+      const [
+        employerResult,
+        jobsResult,
+        liveJobs,
+        pendingJobs,
+        totalApplications,
+        applicationsThisWeek,
+        totalViews,
+        recentApplicantsResult,
+      ] = await Promise.all([
         db.employerProfile.findUnique({
-          where: { id: session.user.employerProfileId },
+          where: { id: employerId },
           include: {
             user: {
               select: { email: true },
@@ -102,19 +187,35 @@ export default async function DashboardPage() {
           },
         }),
         db.job.findMany({
-          where: { employerId: session.user.employerProfileId },
+          where: { employerId },
           include: {
             _count: {
-              select: { applications: true },
+              select: { applications: true, views: true },
             },
           },
           orderBy: { createdAt: 'desc' },
           take: 5,
-        })
+        }),
+        db.job.count({ where: { employerId, status: 'LIVE' } }),
+        db.job.count({ where: { employerId, status: 'PENDING_ADMIN_REVIEW' } }),
+        db.application.count({ where: { job: { employerId } } }),
+        db.application.count({ where: { job: { employerId }, createdAt: { gte: weekAgo } } }),
+        db.jobView.count({ where: { job: { employerId } } }),
+        db.application.findMany({
+          where: { job: { employerId } },
+          include: {
+            job: { select: { id: true, title: true } },
+            candidate: { select: { fullName: true } },
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 5,
+        }),
       ])
-      
+
       employerProfile = employerResult
       jobs = jobsResult
+      employerStats = { liveJobs, pendingJobs, totalApplications, applicationsThisWeek, totalViews }
+      recentApplicants = recentApplicantsResult
     } catch (error: unknown) {
       const maybe = error as PrismaLikeError
       if (isDatabaseConnectionError(maybe)) {
@@ -186,7 +287,14 @@ export default async function DashboardPage() {
             <div className="mb-8" id="overview">
               <h1 className="text-4xl font-serif text-eeg-charcoal">Dashboard</h1>
               <p className="mt-2 text-gray-600">
-                Welcome back, {session.user.email}
+                Welcome back,{' '}
+                {session.user.role === 'CANDIDATE' && candidateProfile?.fullName
+                  ? candidateProfile.fullName
+                  : session.user.role === 'EMPLOYER' && employerProfile?.orgName
+                  ? employerProfile.orgName
+                  : session.user.role === 'ADMIN'
+                  ? 'Admin'
+                  : session.user.email}
               </p>
             </div>
 
@@ -277,6 +385,35 @@ export default async function DashboardPage() {
             {/* Candidate Dashboard */}
             {session.user.role === 'CANDIDATE' && (
               <div className="space-y-6">
+                {/* KPI row */}
+                {candidateStats && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <StatCard
+                      label="Applications"
+                      value={candidateStats.totalApplications}
+                      hint={`${candidateStats.applicationsThisMonth} this month`}
+                      accent="blue"
+                      href="/dashboard/applications"
+                    />
+                    <StatCard
+                      label="Saved Jobs"
+                      value={candidateStats.savedJobs}
+                      hint="Roles you bookmarked"
+                      href="/dashboard/saved"
+                    />
+                    <StatCard
+                      label="Job Matches"
+                      value={candidateStats.newMatches}
+                      hint={candidateStats.newMatches > 0 ? 'New for you' : 'All caught up'}
+                      accent={candidateStats.newMatches > 0 ? 'green' : 'default'}
+                      href="/dashboard/ai"
+                    />
+                    {profileCompleteness && (
+                      <ProfileStrengthMeter completeness={profileCompleteness} />
+                    )}
+                  </div>
+                )}
+
                 <div className="bg-white shadow-sm rounded-lg p-6 border border-gray-200">
                   <h2 className="text-2xl font-serif text-eeg-charcoal mb-4">Your Profile</h2>
                   {candidateProfile ? (
@@ -309,38 +446,161 @@ export default async function DashboardPage() {
                   )}
                 </div>
 
-                <div className="bg-white shadow-sm rounded-lg p-6 border border-gray-200">
-                  <h2 className="text-2xl font-serif text-eeg-charcoal mb-4">Recent Applications</h2>
+                <DashboardSection
+                  title="Recent Applications"
+                  count={candidateStats ? `${candidateStats.totalApplications} total` : undefined}
+                  actionHref="/dashboard/applications"
+                >
                   {applications.length > 0 ? (
                     <div className="space-y-4">
                       {applications.map((app: ApplicationWithJob) => (
-                        <div key={app.id} className="border-b border-gray-200 pb-4 last:border-0">
-                          <h3 className="font-semibold text-gray-900">{app.job?.title || 'Unknown Job'}</h3>
-                          <p className="text-sm text-gray-600 mt-1">
-                            {app.job?.employer?.orgName || 'Unknown Employer'} • Status: <span className="font-medium">{app.status}</span>
-                          </p>
-                          <p className="text-xs text-gray-500 mt-1">
-                            Applied: {new Date(app.createdAt).toLocaleDateString()}
-                          </p>
+                        <div
+                          key={app.id}
+                          className="flex items-start justify-between gap-4 border-b border-gray-200 pb-4 last:border-0 last:pb-0"
+                        >
+                          <div>
+                            {app.job?.id ? (
+                              <Link
+                                href={`/jobs/${app.job.id}`}
+                                className="font-semibold text-gray-900 hover:text-eeg-blue-electric"
+                              >
+                                {app.job.title}
+                              </Link>
+                            ) : (
+                              <h3 className="font-semibold text-gray-900">Unknown Job</h3>
+                            )}
+                            <p className="text-sm text-gray-600 mt-1">
+                              {app.job?.employer?.orgName || 'Unknown Employer'}
+                            </p>
+                            <p className="text-xs text-gray-500 mt-1">
+                              Applied {new Date(app.createdAt).toLocaleDateString()}
+                            </p>
+                          </div>
+                          <StatusPill status={app.status} />
                         </div>
                       ))}
                     </div>
                   ) : (
                     <p className="text-gray-600">No applications yet</p>
                   )}
-                  <Link
-                    href="/dashboard/applications"
-                    className="inline-block mt-4 text-eeg-blue-electric hover:text-eeg-blue-600 font-medium"
-                  >
-                    View All Applications →
-                  </Link>
-                </div>
+                </DashboardSection>
+
+                <DashboardSection
+                  title="Recommended for You"
+                  actionHref="/dashboard/ai"
+                  actionLabel="See all matches"
+                >
+                  {jobMatchesList.length > 0 ? (
+                    <div className="space-y-4">
+                      {jobMatchesList.map((match: JobMatchWithJob) => (
+                        <div
+                          key={match.id}
+                          className="flex items-start justify-between gap-4 border-b border-gray-200 pb-4 last:border-0 last:pb-0"
+                        >
+                          <div>
+                            <Link
+                              href={`/jobs/${match.job.id}`}
+                              className="font-semibold text-gray-900 hover:text-eeg-blue-electric"
+                            >
+                              {match.job.title}
+                            </Link>
+                            <p className="text-sm text-gray-600 mt-1">
+                              {match.job.employer?.orgName || 'Unknown Employer'}
+                            </p>
+                          </div>
+                          <span className="shrink-0 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-50 text-green-700 border border-green-200">
+                            {Math.round(match.matchScore)}% match
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-gray-600">
+                      No matches yet — complete your profile to get matched with roles.
+                    </p>
+                  )}
+                </DashboardSection>
+
+                <DashboardSection
+                  title="Saved Jobs"
+                  count={
+                    candidateStats && candidateStats.savedJobs > 0
+                      ? `${candidateStats.savedJobs} total`
+                      : undefined
+                  }
+                  actionHref="/dashboard/saved"
+                >
+                  {savedJobsList.length > 0 ? (
+                    <div className="space-y-4">
+                      {savedJobsList.map((saved: SavedJobWithJob) => (
+                        <div
+                          key={saved.id}
+                          className="flex items-start justify-between gap-4 border-b border-gray-200 pb-4 last:border-0 last:pb-0"
+                        >
+                          <div>
+                            <Link
+                              href={`/jobs/${saved.job.id}`}
+                              className="font-semibold text-gray-900 hover:text-eeg-blue-electric"
+                            >
+                              {saved.job.title}
+                            </Link>
+                            <p className="text-sm text-gray-600 mt-1">
+                              {saved.job.employer?.orgName || 'Unknown Employer'}
+                            </p>
+                          </div>
+                          <span className="shrink-0 text-xs text-gray-500">
+                            Saved {new Date(saved.savedAt).toLocaleDateString()}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-gray-600">
+                      No saved jobs yet. Browse roles and tap the save icon to bookmark them.
+                    </p>
+                  )}
+                </DashboardSection>
               </div>
             )}
 
             {/* Employer Dashboard */}
             {session.user.role === 'EMPLOYER' && (
               <div className="space-y-6">
+                {/* KPI row */}
+                {employerStats && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <StatCard
+                      label="Live Jobs"
+                      value={employerStats.liveJobs}
+                      hint={`${employerStats.pendingJobs} pending review`}
+                      accent="green"
+                      href="/dashboard/jobs"
+                    />
+                    <StatCard
+                      label="Total Applications"
+                      value={employerStats.totalApplications}
+                      hint={`${employerStats.applicationsThisWeek} new this week`}
+                      accent="blue"
+                      href="/dashboard/applications"
+                    />
+                    <StatCard
+                      label="Total Views"
+                      value={employerStats.totalViews}
+                      hint="Across all your jobs"
+                    />
+                    <StatCard
+                      label="View → Apply"
+                      value={`${
+                        employerStats.totalViews > 0
+                          ? Math.round((employerStats.totalApplications / employerStats.totalViews) * 100)
+                          : 0
+                      }%`}
+                      hint="Conversion rate"
+                      accent="amber"
+                    />
+                  </div>
+                )}
+
                 <div className="bg-white shadow-sm rounded-lg p-6 border border-gray-200">
                   <h2 className="text-2xl font-serif text-eeg-charcoal mb-4">Company Profile</h2>
                   {employerProfile ? (
@@ -388,34 +648,93 @@ export default async function DashboardPage() {
                   )}
                 </div>
 
-                <div className="bg-white shadow-sm rounded-lg p-6 border border-gray-200">
-                  <h2 className="text-2xl font-serif text-eeg-charcoal mb-4">Your Job Postings</h2>
+                <DashboardSection
+                  title="Your Job Postings"
+                  actionHref={employerProfile?.adminApproved ? '/dashboard/jobs/new' : undefined}
+                  actionLabel="Post new job"
+                >
                   {jobs.length > 0 ? (
                     <div className="space-y-4">
-                      {jobs.map((job: EmployerJobSummary) => (
-                        <div key={job.id} className="border-b border-gray-200 pb-4 last:border-0">
-                          <h3 className="font-semibold text-gray-900">{job.title}</h3>
-                          <p className="text-sm text-gray-600 mt-1">
-                            Status: <span className="font-medium">{job.status}</span> • {job._count?.applications || 0} applications
-                          </p>
-                          <p className="text-xs text-gray-500 mt-1">
-                            Created: {new Date(job.createdAt).toLocaleDateString()}
-                          </p>
-                        </div>
-                      ))}
+                      {jobs.map((job: EmployerJobSummary) => {
+                        const views = job._count?.views || 0
+                        const apps = job._count?.applications || 0
+                        const conv = views > 0 ? Math.round((apps / views) * 100) : 0
+                        return (
+                          <div
+                            key={job.id}
+                            className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-gray-200 pb-4 last:border-0 last:pb-0"
+                          >
+                            <div>
+                              <Link
+                                href={`/jobs/${job.id}`}
+                                className="font-semibold text-gray-900 hover:text-eeg-blue-electric"
+                              >
+                                {job.title}
+                              </Link>
+                              <p className="text-xs text-gray-500 mt-1">
+                                Posted {new Date(job.createdAt).toLocaleDateString()}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <span className="text-sm text-gray-600">
+                                {views} views · {apps} apps · {conv}%
+                              </span>
+                              <StatusPill status={job.status} />
+                            </div>
+                          </div>
+                        )
+                      })}
                     </div>
                   ) : (
                     <p className="text-gray-600">No job postings yet</p>
                   )}
-                  {employerProfile?.adminApproved && (
-                    <Link
-                      href="/dashboard/jobs/new"
-                      className="inline-block mt-4 px-6 py-2 bg-gradient-to-r from-eeg-blue-500 to-eeg-blue-600 text-white rounded-lg hover:shadow-lg transition-all font-semibold"
-                    >
-                      Post New Job
-                    </Link>
+                </DashboardSection>
+
+                <DashboardSection
+                  title="Recent Applicants"
+                  count={
+                    employerStats && employerStats.totalApplications > 0
+                      ? `${employerStats.totalApplications} total`
+                      : undefined
+                  }
+                  actionHref="/dashboard/applications"
+                >
+                  {recentApplicants.length > 0 ? (
+                    <div className="space-y-4">
+                      {recentApplicants.map((app: RecentApplicant) => (
+                        <div
+                          key={app.id}
+                          className="flex items-start justify-between gap-4 border-b border-gray-200 pb-4 last:border-0 last:pb-0"
+                        >
+                          <div>
+                            <h3 className="font-semibold text-gray-900">
+                              {app.candidate?.fullName || 'Candidate'}
+                            </h3>
+                            <p className="text-sm text-gray-600 mt-1">
+                              Applied to{' '}
+                              {app.job?.id ? (
+                                <Link
+                                  href={`/jobs/${app.job.id}`}
+                                  className="font-medium text-eeg-blue-electric hover:text-eeg-blue-600"
+                                >
+                                  {app.job.title}
+                                </Link>
+                              ) : (
+                                'a role'
+                              )}
+                            </p>
+                            <p className="text-xs text-gray-500 mt-1">
+                              {new Date(app.createdAt).toLocaleDateString()}
+                            </p>
+                          </div>
+                          <StatusPill status={app.status} />
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-gray-600">No applicants yet</p>
                   )}
-                </div>
+                </DashboardSection>
               </div>
             )}
               </div>
