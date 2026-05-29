@@ -5,14 +5,27 @@ import { usePathname, useSearchParams } from 'next/navigation'
 
 const SESSION_KEY = 'eeg_sid'
 
+// In-memory fallback for when sessionStorage is unavailable (privacy mode,
+// blocked storage, embedded contexts) — accessing it there throws SecurityError.
+let memorySid = ''
+
+function newSid(): string {
+  return crypto.randomUUID?.() || Math.random().toString(36).slice(2) + Date.now().toString(36)
+}
+
 function getSessionId(): string {
   if (typeof window === 'undefined') return ''
-  let sid = sessionStorage.getItem(SESSION_KEY)
-  if (!sid) {
-    sid = (crypto.randomUUID?.() || Math.random().toString(36).slice(2) + Date.now().toString(36))
-    sessionStorage.setItem(SESSION_KEY, sid)
+  try {
+    let sid = sessionStorage.getItem(SESSION_KEY)
+    if (!sid) {
+      sid = newSid()
+      sessionStorage.setItem(SESSION_KEY, sid)
+    }
+    return sid
+  } catch {
+    if (!memorySid) memorySid = newSid()
+    return memorySid
   }
-  return sid
 }
 
 export default function PageViewTracker() {

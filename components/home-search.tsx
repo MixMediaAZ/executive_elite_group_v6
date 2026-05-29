@@ -11,8 +11,11 @@ export default function HomeSearch() {
 
   const handleSearch = (query: string) => {
     if (query.trim()) {
-      // Store search query and redirect to jobs page
-      localStorage.setItem('searchQuery', query.trim())
+      // Store search query and redirect to jobs page. Guard storage access —
+      // it throws SecurityError when storage is blocked (privacy mode, etc.).
+      try {
+        localStorage.setItem('searchQuery', query.trim())
+      } catch { /* storage unavailable — proceed without persisting */ }
       router.push('/jobs')
     }
   }
