@@ -108,14 +108,14 @@ export async function GET(req: NextRequest) {
   const topJobs = await prisma.$queryRaw<Array<{ jobId: string; title: string | null; company: string | null; views: bigint; uniques: bigint }>>(Prisma.sql`
     SELECT pv."jobId" AS "jobId",
            j.title AS title,
-           j.company AS company,
+           j."orgNameOverride" AS company,
            COUNT(*)::bigint AS views,
            COUNT(DISTINCT pv."visitorId")::bigint AS uniques
       FROM "PageView" pv
       LEFT JOIN "Job" j ON j.id = pv."jobId"
      WHERE pv."createdAt" >= ${since}
        AND pv."jobId" IS NOT NULL
-     GROUP BY pv."jobId", j.title, j.company
+     GROUP BY pv."jobId", j.title, j."orgNameOverride"
      ORDER BY views DESC
      LIMIT 10
   `)
