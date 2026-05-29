@@ -22,10 +22,6 @@ export default function LoginPage() {
     setLoading(true)
 
     try {
-      // #region agent log
-      console.log('[LOGIN DEBUG] submit start', {emailPrefix:email.substring(0,5),windowLocation:window.location.href,origin:window.location.origin,host:window.location.host})
-      // #endregion
-      
       // Use a more explicit timeout approach for better error handling
       const timeoutPromise = new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error('Login request timed out after 30 seconds')), 30000)
@@ -38,16 +34,9 @@ export default function LoginPage() {
       })
 
       const result = await Promise.race([signInPromise, timeoutPromise]) as any
-      
-      // #region agent log
-      console.log('[LOGIN DEBUG] signIn result', {hasResult:!!result,hasError:!!result?.error,hasOk:!!result?.ok,status:result?.status,errorMsg:result?.error})
-      // #endregion
 
       // Handle the response
       if (result?.error) {
-        // #region agent log
-        console.log('[LOGIN DEBUG] signIn error path', {error:result.error})
-        // #endregion
         setError('Invalid email or password. Please check your credentials and try again.')
         setLoading(false)
         return
@@ -57,12 +46,8 @@ export default function LoginPage() {
       // This fixes issues where signIn() resolves but session isn't immediately available
       if (result?.ok || result?.status === 200) {
         // Fetch session to ensure it's properly set
-        const session = await getSession()
-        
-        // #region agent log
-        console.log('[LOGIN DEBUG] session fetched', {hasSession:!!session,hasUser:!!session?.user,userId:session?.user?.id})
-        // #endregion
-        
+        await getSession()
+
         // Small delay to ensure session is fully propagated
         await new Promise(resolve => setTimeout(resolve, 100))
         

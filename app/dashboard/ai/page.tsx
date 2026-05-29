@@ -15,11 +15,7 @@ import { UsageStats } from '@/components/ai/usage-stats'
 export default function AIDashboard() {
   const { data: session, status } = useSession()
   const [activeTab, setActiveTab] = useState('overview')
-  
-  // #region agent log
-  console.log('[AI DASHBOARD] Component render', { status, hasSession: !!session, hasUser: !!session?.user })
-  // #endregion
-  
+
   if (status === 'loading') {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -32,9 +28,6 @@ export default function AIDashboard() {
   }
   
   if (!session?.user) {
-    // #region agent log
-    console.log('[AI DASHBOARD] No session, showing sign in message')
-    // #endregion
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -43,10 +36,6 @@ export default function AIDashboard() {
       </div>
     )
   }
-  
-  // #region agent log
-  console.log('[AI DASHBOARD] Rendering dashboard', { userRole: session.user.role, userEmail: session.user.email })
-  // #endregion
 
   // Color mapping for Tailwind classes (must be static for build-time processing)
   const colorClasses: Record<string, { bg: string; text: string }> = {
@@ -122,9 +111,6 @@ export default function AIDashboard() {
 
   // Defensive checks for session data
   if (!session?.user?.role || !session?.user?.email) {
-    // #region agent log
-    console.error('[AI DASHBOARD] Invalid session data', { hasRole: !!session?.user?.role, hasEmail: !!session?.user?.email })
-    // #endregion
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">

@@ -10,13 +10,12 @@ export default function HomeSearch() {
   const [showResults, setShowResults] = useState(false)
 
   const handleSearch = (query: string) => {
-    if (query.trim()) {
-      // Store search query and redirect to jobs page. Guard storage access —
-      // it throws SecurityError when storage is blocked (privacy mode, etc.).
-      try {
-        localStorage.setItem('searchQuery', query.trim())
-      } catch { /* storage unavailable — proceed without persisting */ }
-      router.push('/jobs')
+    const q = query.trim()
+    if (q) {
+      // Pass the query through the URL — the jobs page reads it from the
+      // `search` param. (Previously it was written to localStorage, which the
+      // jobs page never read, so the keyword was silently dropped.)
+      router.push(`/jobs?search=${encodeURIComponent(q)}`)
     }
   }
 

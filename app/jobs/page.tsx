@@ -191,6 +191,8 @@ export default async function JobsPage({ searchParams }: JobsPageProps) {
             className="bg-white rounded-lg border border-neutral-200 p-6 mb-6 grid gap-4 md:grid-cols-4 lg:grid-cols-7"
             method="GET"
           >
+            {/* Preserve the keyword search (e.g. from the homepage) when filtering */}
+            {search && <input type="hidden" name="search" value={search} />}
             <div>
               <label className="block text-sm font-medium text-neutral-700 mb-1.5">Level</label>
               <select
