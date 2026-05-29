@@ -14,6 +14,7 @@ function dayKey(d: Date) {
 }
 
 export async function GET(req: NextRequest) {
+  try {
   const session = await getServerSessionHelper()
   if (!session || session.user.role !== 'ADMIN') {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -74,13 +75,16 @@ export async function GET(req: NextRequest) {
      LIMIT 15
   `)
 
-  // Top referrers (external only)
-  const topReferrers = await prisma.$queryRaw<Array<{ host: string; views: bigint }>>(Prisma.sql`
-    SELECT COALESCE(NULLIF(regexp_replace(referrer, '^https?://([^/]+).*$', '\\1'), referrer), '(direct)') AS host,
+  // Top referrers — extract hostname with substring(), exclude self-referrals
+  const topReferrers = await prisma.$queryRaw<Array<{ ref_host: string; views: bigint }>>(Prisma.sql`
+    SELECT COALESCE(
+             substring(referrer from 'https?://([^/?#]+)'),
+             '(direct)'
+           ) AS ref_host,
            COUNT(*)::bigint AS views
       FROM "PageView"
      WHERE "createdAt" >= ${since}
-       AND (referrer IS NULL OR referrer NOT ILIKE '%' || host || '%')
+       AND (referrer IS NULL OR referrer NOT ILIKE '%' || "host" || '%')
      GROUP BY 1
      ORDER BY views DESC
      LIMIT 10
@@ -176,10 +180,14 @@ export async function GET(req: NextRequest) {
     },
     series,
     topPages: topPages.map(p => ({ path: p.path, views: Number(p.views), uniques: Number(p.uniques), avgMs: p.avgMs })),
-    topReferrers: topReferrers.map(r => ({ host: r.host, views: Number(r.views) })),
+    topReferrers: topReferrers.map(r => ({ host: r.ref_host, views: Number(r.views) })),
     utms: utms.map(u => ({ source: u.source, medium: u.medium, campaign: u.campaign, views: Number(u.views) })),
     topJobs: topJobs.map(j => ({ jobId: j.jobId, title: j.title, company: j.company, views: Number(j.views), uniques: Number(j.uniques) })),
     countries: countries.map(c => ({ country: c.country, views: Number(c.views) })),
     authSplit: authSplit.map(a => ({ kind: a.kind, views: Number(a.views) })),
   })
+  } catch (err) {
+    console.error('[admin/traffic]', err)
+    return NextResponse.json({ error: 'Failed to load traffic stats', detail: err instanceof Error ? err.message : String(err) }, { status: 500 })
+  }
 }
