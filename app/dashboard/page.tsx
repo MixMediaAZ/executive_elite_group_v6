@@ -160,6 +160,11 @@ export default async function DashboardPage() {
       if (isDatabaseConnectionError(maybe)) {
         dbUnavailableMessage = 'Database is unavailable. Please check your DATABASE_URL and ensure your database is running.'
       } else {
+        console.error('[dashboard] prisma error:', JSON.stringify({
+          message: maybe?.message,
+          code: maybe?.code,
+          role: session.user.role,
+        }))
         throw error
       }
     }
@@ -221,6 +226,11 @@ export default async function DashboardPage() {
       if (isDatabaseConnectionError(maybe)) {
         dbUnavailableMessage = 'Database is unavailable. Please check your DATABASE_URL and ensure your database is running.'
       } else {
+        console.error('[dashboard] prisma error:', JSON.stringify({
+          message: maybe?.message,
+          code: maybe?.code,
+          role: session.user.role,
+        }))
         throw error
       }
     }
@@ -269,6 +279,11 @@ export default async function DashboardPage() {
       if (isDatabaseConnectionError(maybe)) {
         dbUnavailableMessage = 'Database is unavailable. Please check your DATABASE_URL and ensure your database is running.'
       } else {
+        console.error('[dashboard] prisma error:', JSON.stringify({
+          message: maybe?.message,
+          code: maybe?.code,
+          role: session.user.role,
+        }))
         throw error
       }
     }
