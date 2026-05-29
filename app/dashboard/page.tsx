@@ -61,9 +61,15 @@ type PrismaLikeError = {
 
 function isDatabaseConnectionError(error: PrismaLikeError | undefined) {
   if (!error) return false
+  // P1001: can't reach DB. P2024: timed out fetching a connection from the pool.
+  // P2037: too many connections. All are transient connectivity issues we degrade on.
   return (
     error.code === 'P1001' ||
-    (typeof error.message === 'string' && error.message.includes("Can't reach database server"))
+    error.code === 'P2024' ||
+    error.code === 'P2037' ||
+    (typeof error.message === 'string' &&
+      (error.message.includes("Can't reach database server") ||
+        error.message.includes('connection pool')))
   )
 }
 
@@ -158,13 +164,8 @@ export default async function DashboardPage() {
     } catch (error: unknown) {
       const maybe = error as PrismaLikeError
       if (isDatabaseConnectionError(maybe)) {
-        dbUnavailableMessage = 'Database is unavailable. Please check your DATABASE_URL and ensure your database is running.'
+        dbUnavailableMessage = 'The dashboard is temporarily unavailable due to a database connection issue. Please refresh in a moment.'
       } else {
-        console.error('[dashboard] prisma error:', JSON.stringify({
-          message: maybe?.message,
-          code: maybe?.code,
-          role: session.user.role,
-        }))
         throw error
       }
     }
@@ -224,13 +225,8 @@ export default async function DashboardPage() {
     } catch (error: unknown) {
       const maybe = error as PrismaLikeError
       if (isDatabaseConnectionError(maybe)) {
-        dbUnavailableMessage = 'Database is unavailable. Please check your DATABASE_URL and ensure your database is running.'
+        dbUnavailableMessage = 'The dashboard is temporarily unavailable due to a database connection issue. Please refresh in a moment.'
       } else {
-        console.error('[dashboard] prisma error:', JSON.stringify({
-          message: maybe?.message,
-          code: maybe?.code,
-          role: session.user.role,
-        }))
         throw error
       }
     }
@@ -277,13 +273,8 @@ export default async function DashboardPage() {
     } catch (error: unknown) {
       const maybe = error as PrismaLikeError
       if (isDatabaseConnectionError(maybe)) {
-        dbUnavailableMessage = 'Database is unavailable. Please check your DATABASE_URL and ensure your database is running.'
+        dbUnavailableMessage = 'The dashboard is temporarily unavailable due to a database connection issue. Please refresh in a moment.'
       } else {
-        console.error('[dashboard] prisma error:', JSON.stringify({
-          message: maybe?.message,
-          code: maybe?.code,
-          role: session.user.role,
-        }))
         throw error
       }
     }

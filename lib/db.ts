@@ -51,9 +51,23 @@ export const db = new Proxy({} as any, {
           }
         }
 
+        // Serverless connection-pool tuning: keep per-instance connections low so
+        // many concurrent lambdas don't exhaust the Supabase pooler, and give a
+        // generous timeout so queued queries wait instead of throwing P2024.
+        let datasourceUrl = process.env.DATABASE_URL as string
+        try {
+          const u = new URL(datasourceUrl)
+          if (!u.searchParams.has('connection_limit')) u.searchParams.set('connection_limit', '1')
+          if (!u.searchParams.has('pool_timeout')) u.searchParams.set('pool_timeout', '20')
+          datasourceUrl = u.toString()
+        } catch {
+          // Leave the URL untouched if it can't be parsed; Prisma will surface its own error.
+        }
+
         globalForPrisma.prisma = new PrismaClient({
           log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
           errorFormat: 'pretty',
+          datasources: { db: { url: datasourceUrl } },
         })
       } catch (error) {
         throw new Error(
