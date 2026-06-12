@@ -16,6 +16,7 @@ const ADMIN_LINKS: { href: string; label: string }[] = [
   { href: '/admin/insights', label: 'Insights' },
   { href: '/admin/health', label: 'Health' },
   { href: '/admin/traffic', label: 'Traffic' },
+  { href: '/admin/job-views', label: 'Job Views' },
   { href: '/admin/tiers', label: 'Tiers' },
 ]
 

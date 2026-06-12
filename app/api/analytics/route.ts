@@ -35,6 +35,27 @@ export async function GET(request: NextRequest) {
         startDate = new Date(0) // All time
     }
 
+    // Running site visits — fixed rolling 30-day and 90-day windows, independent
+    // of the selected period so these cards always reflect "the last month/quarter".
+    // Total = every PageView row; Unique = distinct visitorId (one per browser/day).
+    const window30Start = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+    const window90Start = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000)
+    const [
+      siteVisits30,
+      siteVisitsUnique30,
+      siteVisits90,
+      siteVisitsUnique90,
+    ] = await Promise.all([
+      db.pageView.count({ where: { createdAt: { gte: window30Start } } }),
+      db.pageView
+        .findMany({ where: { createdAt: { gte: window30Start } }, distinct: ['visitorId'], select: { visitorId: true } })
+        .then((r: { visitorId: string }[]) => r.length),
+      db.pageView.count({ where: { createdAt: { gte: window90Start } } }),
+      db.pageView
+        .findMany({ where: { createdAt: { gte: window90Start } }, distinct: ['visitorId'], select: { visitorId: true } })
+        .then((r: { visitorId: string }[]) => r.length),
+    ])
+
     // Get analytics events
     const events = await db.analyticsEvent.findMany({
       where: {
@@ -91,6 +112,10 @@ export async function GET(request: NextRequest) {
           amountCents: true,
         },
       }),
+      siteVisits30,
+      siteVisitsUnique30,
+      siteVisits90,
+      siteVisitsUnique90,
       eventCounts: {
         jobViews: events.filter((e: AnalyticsEvent) => e.eventType === 'JOB_VIEW').length,
         jobApplies: events.filter((e: AnalyticsEvent) => e.eventType === 'JOB_APPLY').length,

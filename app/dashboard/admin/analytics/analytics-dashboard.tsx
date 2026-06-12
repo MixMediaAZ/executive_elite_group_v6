@@ -10,6 +10,10 @@ interface Metrics {
   candidates: number
   employers: number
   totalRevenue: { amountCents: number | null }
+  siteVisits30: number
+  siteVisitsUnique30: number
+  siteVisits90: number
+  siteVisitsUnique90: number
   eventCounts: {
     jobViews: number
     jobApplies: number
@@ -124,6 +128,10 @@ export default function AnalyticsDashboard() {
         <MetricCard title="Employers" value={data.metrics.employers.toString()} />
         <MetricCard title="Revenue" value={`$${revenue}`} />
         <MetricCard title="Job Views" value={data.metrics.eventCounts.jobViews.toString()} />
+        <MetricCard title="Site Visits (30d)" value={data.metrics.siteVisits30.toLocaleString()} />
+        <MetricCard title="Unique Visitors (30d)" value={data.metrics.siteVisitsUnique30.toLocaleString()} />
+        <MetricCard title="Site Visits (90d)" value={data.metrics.siteVisits90.toLocaleString()} />
+        <MetricCard title="Unique Visitors (90d)" value={data.metrics.siteVisitsUnique90.toLocaleString()} />
       </div>
 
       {/* Event Activity Chart */}
